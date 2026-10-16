@@ -646,7 +646,7 @@
       btn.textContent = "⚡ AI 分析並同步至雲端 (Ctrl + Enter)";
     }
 
-    // --- AI Parsing Logic (Gemini API & Fallback) ---
+    // --- AI Parsing Logic (自動探索可用模型並呼叫) ---
     async function callGemini(text, apiKey) {
       const today = new Date().toISOString().split("T")[0];
       const prompt = `你是一位研發主管的 1-on-1 秘書。請從主管口述中提煉出精準的工作重點摘要與承諾，輸出合法 JSON（禁止 markdown 代碼塊）：
@@ -660,23 +660,59 @@
 }
 口述內容：${text}`;
 
-      // 使用正式穩定的 gemini-3.8-flash 模型端點
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey.trim()}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { responseMimeType: "application/json" }
-        })
-      });
+      const key = apiKey.trim();
 
-      if (!res.ok) {
-        const errDetail = await res.text();
-        throw new Error(`HTTP ${res.status}: ${errDetail}`);
+      // 1. 動態取得目前帳號支援 generateContent 的模型清單
+      let availableModels = [];
+      try {
+        const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
+        if (listRes.ok) {
+          const listData = await listRes.json();
+          availableModels = (listData.models || [])
+            .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"))
+            .map(m => m.name.replace("models/", ""));
+        }
+      } catch (e) {
+        console.warn("無法取得模型清單，使用預設候選", e);
       }
 
-      const data = await res.json();
-      return JSON.parse(data.candidates[0].content.parts[0].text);
+      // 優先挑選 flash 輕量系列，若無則按清單順序，最後保底
+      const preferred = ["gemini-1.5-flash-8b", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro"];
+      let targetModels = preferred.filter(m => availableModels.includes(m));
+      if (targetModels.length === 0) {
+        targetModels = availableModels.length > 0 ? availableModels : ["gemini-1.5-flash", "gemini-pro"];
+      }
+
+      let lastError = null;
+      for (const model of targetModels) {
+        try {
+          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: { responseMimeType: "application/json" }
+            })
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            return JSON.parse(data.candidates[0].content.parts[0].text);
+          }
+
+          const errText = await res.text();
+          lastError = new Error(`[${model}] HTTP ${res.status}: ${errText}`);
+          if (res.status === 503 || res.status === 429) {
+            continue; // 遇到 503 塞車自動換下一個模型
+          } else {
+            throw lastError;
+          }
+        } catch (err) {
+          lastError = err;
+        }
+      }
+
+      throw lastError;
     }
 
     // 優化離線規則解析：自動分離口述贅詞與主管承諾
