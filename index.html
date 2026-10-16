@@ -5,11 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>TeamSync — 1-on-1 雲端對齊系統</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Firebase SDK (Compat 版，免打包工具，單檔直跑) -->
+  <!-- Firebase SDK (Compat 版) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-  <!-- SheetJS (純前端直接匯出 Excel) -->
+  <!-- SheetJS (匯出 Excel) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- QRCode.js (手機一鍵同步用) -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 </head>
 <body class="bg-slate-100 text-slate-800 min-h-screen pb-12">
 
@@ -35,7 +37,6 @@
   </header>
 
   <main class="max-w-7xl mx-auto px-4 mt-5 space-y-6">
-
     <!-- 1. 團隊全景雷達牆 -->
     <section>
       <div class="flex items-center justify-between mb-2">
@@ -52,8 +53,7 @@
 
     <!-- 2. 左右核心工作區 -->
     <section id="workspaceSection" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-
-      <!-- 左欄：成員脈絡與待辦閉環 (7欄) -->
+      <!-- 左欄：成員脈絡與待辦閉環 -->
       <div class="lg:col-span-7 space-y-4">
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
           <div class="flex flex-wrap items-center justify-between gap-2 border-b pb-3 mb-4">
@@ -69,7 +69,7 @@
             </button>
           </div>
 
-          <!-- 長期技術偏好 -->
+          <!-- 個人偏好 -->
           <div class="mb-5">
             <div class="flex items-center justify-between mb-1">
               <label class="text-xs font-bold text-slate-500">💡 個人技術偏好 / 興趣與調配備忘</label>
@@ -92,7 +92,7 @@
         </div>
       </div>
 
-      <!-- 右欄：10秒極速記錄面板 (5欄) -->
+      <!-- 右欄：10秒極速記錄面板 -->
       <div class="lg:col-span-5">
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 sticky top-16">
           <h3 class="text-base font-bold text-slate-900 mb-1">✍️ 會後 10 秒極速記錄</h3>
@@ -100,16 +100,13 @@
             手機按鍵盤麥克風口述、電腦按 <kbd class="px-1.5 py-0.5 bg-slate-100 border rounded">Win+H</kbd> 語音或隨手打碎詞，AI 自動拆解。
           </p>
 
-          <!-- 語音按鈕 (Web Speech API) -->
           <button type="button" id="voiceBtn" onclick="toggleSpeech()" class="w-full mb-3 py-2.5 px-4 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-medium text-sm flex items-center justify-center gap-2 transition">
             <span id="voiceIcon">🎙️</span>
             <span id="voiceText">按此開始語音口述 (或直接打字)</span>
           </button>
 
-          <!-- 碎詞輸入框 -->
-          <textarea id="rawNoteInput" rows="4" placeholder="口述或打字範例：今天跟 Kevin 聊，能量2分，卡在測試板不夠，我答應下週二前幫他向硬體組協調兩塊板子。" class="w-full text-sm border border-slate-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"></textarea>
+          <textarea id="rawNoteInput" rows="4" placeholder="口述範例：今天跟 Kevin 聊，能量2分，卡在測試板不夠，我答應下週二前幫他向硬體組協調兩塊板子。" class="w-full text-sm border border-slate-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"></textarea>
 
-          <!-- 輔助選項 -->
           <div class="grid grid-cols-2 gap-3 mb-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
             <div>
               <label class="block text-xs font-medium text-slate-600 mb-1">🔋 指定能量 (選填)</label>
@@ -136,12 +133,12 @@
     </section>
   </main>
 
-  <!-- 批次匯入名單 Modal -->
+  <!-- 批次匯入 Modal -->
   <div id="batchModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
     <div class="bg-white rounded-xl max-w-lg w-full p-5 shadow-xl">
       <h3 class="text-lg font-bold mb-1">👥 批次匯入成員名單</h3>
       <p class="text-xs text-slate-500 mb-3">每行一位，格式：<code class="bg-slate-100 px-1">姓名, 公司Email</code></p>
-      <textarea id="batchTextarea" rows="6" placeholder="Alex Chen, alex.chen@company.com&#10;Kevin Lin, kevin.lin@company.com&#10;Jason Wang, jason.wang@company.com" class="w-full text-sm border rounded-lg p-3 mb-4 font-mono"></textarea>
+      <textarea id="batchTextarea" rows="6" placeholder="Alex Chen, alex.chen@company.com&#10;Kevin Lin, kevin.lin@company.com" class="w-full text-sm border rounded-lg p-3 mb-4 font-mono"></textarea>
       <div class="flex justify-end gap-2">
         <button onclick="closeBatchModal()" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">取消</button>
         <button onclick="submitBatchImport()" class="px-4 py-2 text-sm bg-blue-600 text-white font-bold rounded-lg">一鍵寫入雲端</button>
@@ -149,7 +146,7 @@
     </div>
   </div>
 
-  <!-- 封存/狀態管理 Modal -->
+  <!-- 封存 Modal -->
   <div id="archiveModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
     <div class="bg-white rounded-xl max-w-md w-full p-5 shadow-xl">
       <h3 class="text-lg font-bold mb-2">📦 成員在職與封存管理</h3>
@@ -169,21 +166,35 @@
     </div>
   </div>
 
-  <!-- 雲端設定 (Firebase + Gemini API) Modal -->
-  <div id="configModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
-    <div class="bg-white rounded-xl max-w-lg w-full p-5 shadow-xl">
-      <h3 class="text-lg font-bold mb-1">⚙️ 雲端資料庫與 Gemini API 設定</h3>
-      <p class="text-xs text-slate-500 mb-4">設定僅保存在此裝置的瀏覽器中，換手機或電腦時各貼一次即可。</p>
+  <!-- 雲端設定 Modal (含 QR Code 同步手機) -->
+  <div id="configModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4 overflow-y-auto">
+    <div class="bg-white rounded-xl max-w-lg w-full p-5 shadow-xl my-8">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="text-lg font-bold">⚙️ 雲端資料庫設定</h3>
+        <button onclick="closeConfigModal()" class="text-slate-400 hover:text-slate-600 font-bold text-lg">&times;</button>
+      </div>
       
-      <label class="block text-xs font-bold text-slate-700 mb-1">1. Firebase Web Config (貼上 JSON 或整段 JS 物件)</label>
-      <textarea id="firebaseConfigInput" rows="5" placeholder='const firebaseConfig = { apiKey: "...", projectId: "...", ... };' class="w-full border rounded-lg p-2.5 text-xs font-mono mb-3"></textarea>
+      <label class="block text-xs font-bold text-slate-700 mb-1">1. Firebase Web Config</label>
+      <textarea id="firebaseConfigInput" rows="4" placeholder='{"apiKey": "...", "projectId": "...", ...}' class="w-full border rounded-lg p-2.5 text-xs font-mono mb-3"></textarea>
 
-      <label class="block text-xs font-bold text-slate-700 mb-1">2. Google Gemini API Key (選填，無金鑰會走離線規則)</label>
+      <label class="block text-xs font-bold text-slate-700 mb-1">2. Google Gemini API Key (選填)</label>
       <input type="password" id="geminiKeyInput" placeholder="AIzaSy..." class="w-full border rounded-lg p-2.5 text-sm font-mono mb-4" />
 
-      <div class="flex justify-end gap-2">
-        <button onclick="closeConfigModal()" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">取消</button>
-        <button onclick="saveConfig()" class="px-4 py-2 text-sm bg-blue-600 text-white font-bold rounded-lg">儲存並連線</button>
+      <div class="flex items-center justify-between gap-2 border-t pt-4">
+        <button onclick="generateSyncQR()" class="px-3 py-2 text-xs bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold rounded-lg border border-indigo-200 flex items-center gap-1">
+          📱 產生手機同步 QR Code
+        </button>
+        <div class="flex gap-2">
+          <button onclick="closeConfigModal()" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">取消</button>
+          <button onclick="saveConfig()" class="px-4 py-2 text-sm bg-blue-600 text-white font-bold rounded-lg">儲存並連線</button>
+        </div>
+      </div>
+
+      <!-- QR Code 顯示區塊 -->
+      <div id="qrContainer" class="hidden mt-4 p-4 bg-slate-50 border rounded-xl text-center">
+        <p class="text-xs font-bold text-slate-700 mb-2">請打開手機相機掃描下方條碼：</p>
+        <div id="qrcode" class="flex justify-center mb-2"></div>
+        <p class="text-[11px] text-slate-500">掃描後手機會直接打開此網頁並自動完成所有設定連線！</p>
       </div>
     </div>
   </div>
@@ -200,7 +211,10 @@
 
     // --- Initialization ---
     window.addEventListener("DOMContentLoaded", () => {
+      // 檢查網址是否有自帶 URL 參數 (來自手機掃 QR Code)
+      checkUrlSyncParams();
       initFirebase();
+
       document.getElementById("rawNoteInput").addEventListener("keydown", (e) => {
         if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
           submitLog();
@@ -208,7 +222,67 @@
       });
     });
 
-    // Upgraded Firebase initialization with smart JS-object-to-JSON parser
+    // 檢查網址帶入的參數並自動儲存
+    function checkUrlSyncParams() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const syncData = urlParams.get("sync");
+      if (syncData) {
+        try {
+          const decoded = decodeURIComponent(escape(atob(syncData)));
+          const payload = JSON.parse(decoded);
+          if (payload.cfg) localStorage.setItem("teamsync_firebase_config", payload.cfg);
+          if (payload.gemini) localStorage.setItem("teamsync_gemini_key", payload.gemini);
+          // 清除 URL 參數讓網址保持乾淨
+          window.history.replaceState({}, document.title, window.location.pathname);
+          alert("🎉 手機連線設定已成功自動導入！");
+        } catch (e) {
+          console.error("URL 同步解碼失敗:", e);
+        }
+      }
+    }
+
+    // 產生手機專用同步 QR Code
+    function generateSyncQR() {
+      const cfg = document.getElementById("firebaseConfigInput").value.trim();
+      const gemini = document.getElementById("geminiKeyInput").value.trim();
+      if (!cfg) {
+        alert("請先在上方輸入 Firebase Config 才能產生同步 QR Code！");
+        return;
+      }
+
+      const payload = { cfg: cfg, gemini: gemini };
+      const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+      const syncUrl = `${window.location.origin}${window.location.pathname}?sync=${encoded}`;
+
+      const qrBox = document.getElementById("qrcode");
+      qrBox.innerHTML = "";
+      new QRCode(qrBox, {
+        text: syncUrl,
+        width: 180,
+        height: 180,
+        correctLevel: QRCode.CorrectLevel.L
+      });
+
+      document.getElementById("qrContainer").classList.remove("hidden");
+    }
+
+    // Upgraded Firebase parser: 去除隱形字元、強健解析
+    function cleanJsonString(str) {
+      if (!str) return "";
+      // 移除零寬度空白、BOM 等隱形字元
+      let s = str.replace(/[\u200B-\u200D\uFEFF]/g, "").trim();
+      const first = s.indexOf("{");
+      const last = s.lastIndexOf("}");
+      if (first !== -1 && last !== -1) {
+        s = s.substring(first, last + 1);
+      }
+      s = s.replace(/\/\/.*$/gm, ""); // 移除單行註解
+      s = s.replace(/'/g, '"');        // 單引號轉雙引號
+      s = s.replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/g, '$1"$2":'); // 補雙引號
+      s = s.replace(/,\s*}/g, "}");   // 移除結尾逗號
+      return s;
+    }
+
     function initFirebase() {
       const cfgStr = localStorage.getItem("teamsync_firebase_config");
       const badge = document.getElementById("statusBadge");
@@ -219,23 +293,10 @@
         return;
       }
       try {
-        let cleanStr = cfgStr.trim();
-        // Extract content between braces
-        const firstBrace = cleanStr.indexOf("{");
-        const lastBrace = cleanStr.lastIndexOf("}");
-        if (firstBrace !== -1 && lastBrace !== -1) {
-          cleanStr = cleanStr.substring(firstBrace, lastBrace + 1);
-        }
-        // Remove single-line JS comments
-        cleanStr = cleanStr.replace(/\/\/.*$/gm, "");
-        // Normalize single quotes to double quotes
-        cleanStr = cleanStr.replace(/'/g, '"');
-        // Wrap unquoted JS object keys in double quotes
-        cleanStr = cleanStr.replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/g, '$1"$2":');
-        // Remove trailing commas before closing braces
-        cleanStr = cleanStr.replace(/,\s*}/g, "}");
-
-        const cfg = JSON.parse(cleanStr);
+        const clean = cleanJsonString(cfgStr);
+        const cfg = JSON.parse(clean);
+        
+        // 若已經有連線實例，避免重複 initializeApp
         if (!firebase.apps.length) {
           firebase.initializeApp(cfg);
         }
@@ -244,7 +305,7 @@
         badge.className = "ml-1 text-xs text-emerald-300";
         setupRealtimeListeners();
       } catch (err) {
-        console.error("Firebase initialization failed:", err);
+        console.error("Firebase 連線初始化失敗:", err);
         badge.textContent = "🔴 連線失敗";
         badge.className = "ml-1 text-xs text-rose-300";
       }
@@ -254,7 +315,6 @@
     function setupRealtimeListeners() {
       if (!db) return;
 
-      // Listen to members
       db.collection("members").onSnapshot(snapshot => {
         members = [];
         snapshot.forEach(doc => members.push({ email: doc.id, ...doc.data() }));
@@ -263,16 +323,17 @@
           selectedEmail = firstActive ? firstActive.email : members[0].email;
         }
         renderUI();
+      }, err => {
+        console.error("監聽 members 失敗:", err);
+        document.getElementById("statusBadge").textContent = "🔴 權限受阻";
       });
 
-      // Listen to logs
       db.collection("logs").orderBy("meeting_date", "desc").onSnapshot(snapshot => {
         logs = [];
         snapshot.forEach(doc => logs.push({ id: doc.id, ...doc.data() }));
         renderUI();
       });
 
-      // Listen to actions
       db.collection("actions").orderBy("created_at", "desc").onSnapshot(snapshot => {
         actions = [];
         snapshot.forEach(doc => actions.push({ id: doc.id, ...doc.data() }));
@@ -316,9 +377,7 @@
           if (diffDays > 14) isOverdueTalk = true;
         }
 
-        // Consecutive low-energy warning
         const burnoutAlert = mLogs.length >= 2 && mLogs[0].energy_score <= 2 && mLogs[1].energy_score <= 2;
-        // Overdue pending actions warning
         const overdueActions = mPendingActions.filter(a => a.due_date && a.due_date < today).length;
 
         const card = document.createElement("div");
@@ -364,7 +423,6 @@
         badge.className = "text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-800";
       }
 
-      // Render pending actions
       const mPending = actions.filter(a => a.member_email === m.email && !a.is_done);
       const actList = document.getElementById("pendingActionsList");
       actList.innerHTML = "";
@@ -390,7 +448,6 @@
         });
       }
 
-      // Render conversation history
       const mLogs = logs.filter(l => l.member_email === m.email).slice(0, 5);
       const logList = document.getElementById("recentLogsList");
       logList.innerHTML = "";
@@ -464,7 +521,6 @@
       const actContent = parsed.manager_action;
       const actDue = manualDueDate || parsed.action_due || "";
 
-      // 1. Write to logs
       await db.collection("logs").add({
         member_email: selectedEmail,
         meeting_date: today,
@@ -476,7 +532,6 @@
         created_at: firebase.firestore.FieldValue.serverTimestamp()
       });
 
-      // 2. Write to actions if action exists
       if (actContent && actContent.trim() && actContent.toLowerCase() !== "null") {
         await db.collection("actions").add({
           member_email: selectedEmail,
@@ -489,7 +544,6 @@
         });
       }
 
-      // Reset input form
       document.getElementById("rawNoteInput").value = "";
       document.getElementById("manualEnergy").value = "";
       document.getElementById("manualDueDate").value = "";
@@ -497,7 +551,6 @@
       btn.textContent = "⚡ AI 分析並同步至雲端 (Ctrl + Enter)";
     }
 
-    // --- AI Parsing Logic ---
     async function callGemini(text, apiKey) {
       const today = new Date().toISOString().split("T")[0];
       const prompt = `你是一位研發主管的 1-on-1 秘書。請從主管的簡短口述中萃取資訊並輸出合法 JSON（不要包含 markdown）：
@@ -545,7 +598,6 @@
       return { energy_score: energy, pain_tags: tags, summary_note: text, manager_action: action, action_due: "", private_memo: "" };
     }
 
-    // --- Web Speech API ---
     function toggleSpeech() {
       const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!Speech) {
@@ -576,11 +628,8 @@
       }
     }
 
-    // --- Excel Export via SheetJS ---
     function exportExcel() {
       const wb = XLSX.utils.book_new();
-
-      // Interview logs sheet
       const logRows = logs.map(l => {
         const m = members.find(x => x.email === l.member_email);
         return {
@@ -597,7 +646,6 @@
       const wsLogs = XLSX.utils.json_to_sheet(logRows);
       XLSX.utils.book_append_sheet(wb, wsLogs, "1-on-1訪談紀錄");
 
-      // Actions closure sheet
       const actRows = actions.map(a => {
         const m = members.find(x => x.email === a.member_email);
         return {
@@ -617,10 +665,10 @@
       XLSX.writeFile(wb, `TeamSync_1on1_${today}.xlsx`);
     }
 
-    // --- Modal Controls ---
     function openConfigModal() {
       document.getElementById("firebaseConfigInput").value = localStorage.getItem("teamsync_firebase_config") || "";
       document.getElementById("geminiKeyInput").value = localStorage.getItem("teamsync_gemini_key") || "";
+      document.getElementById("qrContainer").classList.add("hidden");
       document.getElementById("configModal").classList.replace("hidden", "flex");
     }
     function closeConfigModal() { document.getElementById("configModal").classList.replace("flex", "hidden"); }
