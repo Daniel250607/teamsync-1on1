@@ -601,6 +601,7 @@
           parsed = await callGemini(rawText, geminiKey);
         } catch (e) {
           console.warn("Gemini 呼叫失敗，改走離線規則:", e);
+          alert("⚠️ Gemini API 呼叫失敗，已退回本地離線規則！\n錯誤原因：" + e.message);
           parsed = fallbackParse(rawText);
         }
       } else {
@@ -659,7 +660,8 @@
 }
 口述內容：${text}`;
 
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+      // 使用正式穩定的 gemini-3.8-flash 模型端點
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey.trim()}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -667,6 +669,12 @@
           generationConfig: { responseMimeType: "application/json" }
         })
       });
+
+      if (!res.ok) {
+        const errDetail = await res.text();
+        throw new Error(`HTTP ${res.status}: ${errDetail}`);
+      }
+
       const data = await res.json();
       return JSON.parse(data.candidates[0].content.parts[0].text);
     }
