@@ -72,7 +72,7 @@
           <!-- 個人偏好 -->
           <div class="mb-5">
             <div class="flex items-center justify-between mb-1">
-              <label class="text-xs font-bold text-slate-500">💡 個人技術偏好 / 興趣與調配備忘</label>
+              <label for="currPrefInput" class="text-xs font-bold text-slate-500">💡 個人技術偏好 / 興趣與調配備忘</label>
               <button onclick="savePreference()" class="text-xs text-blue-600 hover:underline font-medium">💾 儲存修改</button>
             </div>
             <textarea id="currPrefInput" rows="2" placeholder="例：擅長 Power Sequence 除錯；排斥純手動回測；想接觸新架構..." class="w-full text-sm border border-slate-200 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"></textarea>
@@ -105,11 +105,11 @@
             <span id="voiceText">按此開始語音口述 (或直接打字)</span>
           </button>
 
-          <textarea id="rawNoteInput" rows="4" placeholder="口述範例：今天跟 Kevin 聊，能量2分，卡在測試板不夠，我答應下週二前幫他向硬體組協調兩塊板子。" class="w-full text-sm border border-slate-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"></textarea>
+          <textarea id="rawNoteInput" aria-label="會後口述或文字記錄" rows="4" placeholder="口述範例：今天跟 Kevin 聊，能量2分，卡在測試板不夠，我答應下週二前幫他向硬體組協調兩塊板子。" class="w-full text-sm border border-slate-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"></textarea>
 
           <div class="grid grid-cols-2 gap-3 mb-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
             <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">🔋 指定能量 (選填)</label>
+              <label for="manualEnergy" class="block text-xs font-medium text-slate-600 mb-1">🔋 指定能量 (選填)</label>
               <select id="manualEnergy" class="w-full text-sm border border-slate-300 rounded p-1.5 bg-white">
                 <option value="">由 AI/文字自動判斷</option>
                 <option value="5">5 分 - 狀態極佳</option>
@@ -120,7 +120,7 @@
               </select>
             </div>
             <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">📅 承諾完成期限 (選填)</label>
+              <label for="manualDueDate" class="block text-xs font-medium text-slate-600 mb-1">📅 承諾完成期限 (選填)</label>
               <input type="date" id="manualDueDate" class="w-full text-sm border border-slate-300 rounded p-1.5 bg-white" />
             </div>
           </div>
@@ -134,11 +134,11 @@
   </main>
 
   <!-- 批次匯入 Modal -->
-  <div id="batchModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
+  <div id="batchModal" role="dialog" aria-modal="true" aria-labelledby="batchModalTitle" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
     <div class="bg-white rounded-xl max-w-lg w-full p-5 shadow-xl">
-      <h3 class="text-lg font-bold mb-1">👥 批次匯入成員名單</h3>
+      <h3 id="batchModalTitle" class="text-lg font-bold mb-1">👥 批次匯入成員名單</h3>
       <p class="text-xs text-slate-500 mb-3">每行一位，格式：<code class="bg-slate-100 px-1">姓名, 公司Email</code></p>
-      <textarea id="batchTextarea" rows="6" placeholder="Alex Chen, alex.chen@company.com&#10;Kevin Lin, kevin.lin@company.com" class="w-full text-sm border rounded-lg p-3 mb-4 font-mono"></textarea>
+      <textarea id="batchTextarea" aria-label="批次匯入成員名單" rows="6" placeholder="Alex Chen, alex.chen@company.com&#10;Kevin Lin, kevin.lin@company.com" class="w-full text-sm border rounded-lg p-3 mb-4 font-mono"></textarea>
       <div class="flex justify-end gap-2">
         <button onclick="closeBatchModal()" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">取消</button>
         <button onclick="submitBatchImport()" class="px-4 py-2 text-sm bg-blue-600 text-white font-bold rounded-lg">一鍵寫入雲端</button>
@@ -147,17 +147,17 @@
   </div>
 
   <!-- 封存 Modal -->
-  <div id="archiveModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
+  <div id="archiveModal" role="dialog" aria-modal="true" aria-labelledby="archiveModalTitle" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
     <div class="bg-white rounded-xl max-w-md w-full p-5 shadow-xl">
-      <h3 class="text-lg font-bold mb-2">📦 成員在職與封存管理</h3>
+      <h3 id="archiveModalTitle" class="text-lg font-bold mb-2">📦 成員在職與封存管理</h3>
       <p class="text-xs text-slate-500 mb-4">封存後平時將隱藏此同仁，但所有過往訪談紀錄與承諾將永久保留於 Firestore 雲端歷史庫中。</p>
-      <label class="block text-xs font-bold text-slate-600 mb-1">狀態設定</label>
+      <label for="archiveStatusSelect" class="block text-xs font-bold text-slate-600 mb-1">狀態設定</label>
       <select id="archiveStatusSelect" class="w-full border rounded-lg p-2 text-sm mb-3">
         <option value="active">🟢 Active (在職中)</option>
         <option value="archived">📦 Archived (已離職 / 封存)</option>
         <option value="transferred">🔄 Transferred (轉調其他部門)</option>
       </select>
-      <label class="block text-xs font-bold text-slate-600 mb-1">異動原因備註 (選填)</label>
+      <label for="archiveReasonInput" class="block text-xs font-bold text-slate-600 mb-1">異動原因備註 (選填)</label>
       <input type="text" id="archiveReasonInput" placeholder="例：2026/11 轉調系統軟體組" class="w-full border rounded-lg p-2 text-sm mb-4" />
       <div class="flex justify-end gap-2">
         <button onclick="closeArchiveModal()" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">取消</button>
@@ -167,22 +167,22 @@
   </div>
 
   <!-- 編輯談話紀錄 Modal (新增) -->
-  <div id="editLogModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
+  <div id="editLogModal" role="dialog" aria-modal="true" aria-labelledby="editLogModalTitle" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
     <div class="bg-white rounded-xl max-w-lg w-full p-5 shadow-xl">
       <div class="flex items-center justify-between mb-3 border-b pb-2">
-        <h3 class="text-lg font-bold">✏️ 編輯談話內容</h3>
-        <button onclick="closeEditLogModal()" class="text-slate-400 hover:text-slate-600 font-bold text-lg">&times;</button>
+        <h3 id="editLogModalTitle" class="text-lg font-bold">✏️ 編輯談話內容</h3>
+        <button onclick="closeEditLogModal()" aria-label="關閉" class="text-slate-400 hover:text-slate-600 font-bold text-lg">&times;</button>
       </div>
       <input type="hidden" id="editLogId" />
 
       <div class="space-y-3">
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-xs font-bold text-slate-600 mb-1">對齊日期</label>
+            <label for="editLogDate" class="block text-xs font-bold text-slate-600 mb-1">對齊日期</label>
             <input type="date" id="editLogDate" class="w-full border rounded-lg p-2 text-sm bg-slate-50" />
           </div>
           <div>
-            <label class="block text-xs font-bold text-slate-600 mb-1">能量評分 (1-5)</label>
+            <label for="editLogEnergy" class="block text-xs font-bold text-slate-600 mb-1">能量評分 (1-5)</label>
             <select id="editLogEnergy" class="w-full border rounded-lg p-2 text-sm bg-slate-50">
               <option value="5">5 分 - 狀態極佳</option>
               <option value="4">4 分 - 順暢穩定</option>
@@ -194,17 +194,17 @@
         </div>
 
         <div>
-          <label class="block text-xs font-bold text-slate-600 mb-1">痛點標籤 (以逗號分隔)</label>
+          <label for="editLogTags" class="block text-xs font-bold text-slate-600 mb-1">痛點標籤 (以逗號分隔)</label>
           <input type="text" id="editLogTags" placeholder="例: 硬體板子不足, 回測耗時" class="w-full border rounded-lg p-2 text-sm bg-slate-50" />
         </div>
 
         <div>
-          <label class="block text-xs font-bold text-slate-600 mb-1">工作調配與討論摘要</label>
+          <label for="editLogSummary" class="block text-xs font-bold text-slate-600 mb-1">工作調配與討論摘要</label>
           <textarea id="editLogSummary" rows="3" class="w-full border rounded-lg p-2 text-sm bg-slate-50"></textarea>
         </div>
 
         <div>
-          <label class="block text-xs font-bold text-rose-700 mb-1">🔒 主管私密備註 (選填)</label>
+          <label for="editLogMemo" class="block text-xs font-bold text-rose-700 mb-1">🔒 主管私密備註 (選填)</label>
           <input type="text" id="editLogMemo" placeholder="情緒狀態、生涯意向等私密紀錄" class="w-full border rounded-lg p-2 text-sm bg-rose-50/50 border-rose-200" />
         </div>
       </div>
@@ -217,17 +217,17 @@
   </div>
 
   <!-- 雲端設定 Modal (含 QR Code 同步手機) -->
-  <div id="configModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4 overflow-y-auto">
+  <div id="configModal" role="dialog" aria-modal="true" aria-labelledby="configModalTitle" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4 overflow-y-auto">
     <div class="bg-white rounded-xl max-w-lg w-full p-5 shadow-xl my-8">
       <div class="flex items-center justify-between mb-2">
-        <h3 class="text-lg font-bold">⚙️ 雲端資料庫設定</h3>
-        <button onclick="closeConfigModal()" class="text-slate-400 hover:text-slate-600 font-bold text-lg">&times;</button>
+        <h3 id="configModalTitle" class="text-lg font-bold">⚙️ 雲端資料庫設定</h3>
+        <button onclick="closeConfigModal()" aria-label="關閉" class="text-slate-400 hover:text-slate-600 font-bold text-lg">&times;</button>
       </div>
       
-      <label class="block text-xs font-bold text-slate-700 mb-1">1. Firebase Web Config</label>
+      <label for="firebaseConfigInput" class="block text-xs font-bold text-slate-700 mb-1">1. Firebase Web Config</label>
       <textarea id="firebaseConfigInput" rows="4" placeholder='{"apiKey": "...", "projectId": "...", ...}' class="w-full border rounded-lg p-2.5 text-xs font-mono mb-3"></textarea>
 
-      <label class="block text-xs font-bold text-slate-700 mb-1">2. Google Gemini API Key (有填才會啟用雲端真實 AI 理解)</label>
+      <label for="geminiKeyInput" class="block text-xs font-bold text-slate-700 mb-1">2. Google Gemini API Key (有填才會啟用雲端真實 AI 理解)</label>
       <input type="password" id="geminiKeyInput" placeholder="AIzaSy..." class="w-full border rounded-lg p-2.5 text-sm font-mono mb-4" />
 
       <div class="flex items-center justify-between gap-2 border-t pt-4">
@@ -258,6 +258,57 @@
     let selectedEmail = null;
     let recognition = null;
     let isRecording = false;
+    let isSubmitting = false;
+    let unsubscribers = [];
+
+    const VOICE_BTN_BASE = "w-full mb-3 py-2.5 px-4 rounded-lg text-white text-sm flex items-center justify-center gap-2 transition";
+    const VOICE_BTN_IDLE = `${VOICE_BTN_BASE} bg-slate-800 hover:bg-slate-700 font-medium`;
+    const VOICE_BTN_REC = `${VOICE_BTN_BASE} bg-rose-600 font-bold animate-pulse`;
+    const SUBMIT_LABEL = "⚡ AI 分析並同步至雲端 (Ctrl + Enter)";
+
+    // --- Helpers ---
+    // HTML 跳脫：所有寫進 innerHTML 的外部資料 (Firestore / AI 輸出) 都必須先經過這裡
+    function esc(v) {
+      return String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    }
+
+    // 本地時區 YYYY-MM-DD (toISOString 會是 UTC，台灣 00:00~08:00 會差一天)
+    function todayLocal() {
+      const d = new Date();
+      const p = n => String(n).padStart(2, "0");
+      return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+    }
+
+    // URL-safe Base64 (UTF-8)；解碼時同時容忍舊版 (+ / =) 與被 URLSearchParams 轉成空白的 +
+    function b64urlEncode(str) {
+      const bytes = new TextEncoder().encode(str);
+      let bin = "";
+      bytes.forEach(b => { bin += String.fromCharCode(b); });
+      return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    }
+    function b64urlDecode(s) {
+      let b = s.replace(/ /g, "+").replace(/-/g, "+").replace(/_/g, "/");
+      while (b.length % 4) b += "=";
+      const bin = atob(b);
+      const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+      return new TextDecoder().decode(bytes);
+    }
+
+    // 統一的寫入錯誤處理：不讓 Firestore 失敗變成無聲的 unhandled rejection
+    async function guarded(label, fn) {
+      try {
+        return await fn();
+      } catch (err) {
+        console.error(`${label} 失敗:`, err);
+        alert(`⚠️ ${label}失敗：${err && err.message ? err.message : err}`);
+        return undefined;
+      }
+    }
+
+    // 離線時 Firestore 的 promise 不會 resolve (寫入會排隊)，加上逾時避免 UI 永遠卡住
+    function withTimeout(promise, ms) {
+      return Promise.race([promise, new Promise(resolve => setTimeout(() => resolve("__timeout__"), ms))]);
+    }
 
     // --- Initialization ---
     window.addEventListener("DOMContentLoaded", () => {
@@ -266,25 +317,47 @@
 
       document.getElementById("rawNoteInput").addEventListener("keydown", (e) => {
         if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+          e.preventDefault();
           submitLog();
         }
+      });
+
+      // Esc 關閉目前開啟的 Modal
+      document.addEventListener("keydown", (e) => {
+        if (e.key !== "Escape") return;
+        document.querySelectorAll('[role="dialog"].flex').forEach(m => m.classList.replace("flex", "hidden"));
       });
     });
 
     function checkUrlSyncParams() {
       const urlParams = new URLSearchParams(window.location.search);
       const syncData = urlParams.get("sync");
-      if (syncData) {
-        try {
-          const decoded = decodeURIComponent(escape(atob(syncData)));
-          const payload = JSON.parse(decoded);
-          if (payload.cfg) localStorage.setItem("teamsync_firebase_config", payload.cfg);
-          if (payload.gemini) localStorage.setItem("teamsync_gemini_key", payload.gemini);
-          window.history.replaceState({}, document.title, window.location.pathname);
-          alert("🎉 手機連線設定已成功自動導入！");
-        } catch (e) {
-          console.error("URL 同步解碼失敗:", e);
-        }
+      if (!syncData) return;
+
+      // 先清掉網址列上的敏感參數，不論使用者之後是否同意匯入
+      window.history.replaceState({}, document.title, window.location.pathname);
+
+      try {
+        const payload = JSON.parse(b64urlDecode(syncData));
+        if (!payload || typeof payload.cfg !== "string") throw new Error("無效的同步資料");
+
+        // 防止惡意連結偷換設定：必須經使用者確認，並顯示將要連線的專案
+        let projectHint = "(無法辨識)";
+        const m = payload.cfg.match(/projectId["']?\s*:\s*["']([^"']+)["']/);
+        if (m) projectHint = m[1];
+        const hasGemini = payload.gemini ? "，並包含 Gemini API Key" : "";
+        const ok = confirm(
+          `偵測到同步連結，將覆蓋本機的連線設定：\n\nFirebase 專案：${projectHint}${hasGemini}\n\n` +
+          `只有在這是你自己產生的 QR Code 時才按「確定」。\n不明來源的連結請按「取消」。`
+        );
+        if (!ok) return;
+
+        localStorage.setItem("teamsync_firebase_config", payload.cfg);
+        if (payload.gemini) localStorage.setItem("teamsync_gemini_key", payload.gemini);
+        alert("🎉 手機連線設定已成功匯入！");
+      } catch (e) {
+        console.error("URL 同步解碼失敗:", e);
+        alert("同步連結解碼失敗，未變更任何設定。");
       }
     }
 
@@ -295,9 +368,20 @@
         alert("請先在上方輸入 Firebase Config 才能產生同步 QR Code！");
         return;
       }
+      if (window.location.protocol === "file:") {
+        alert("目前是以 file:// 開啟，手機無法掃描連到本機檔案。\n請先將此頁面放到 https 網址 (或區網伺服器) 後再產生 QR Code。");
+        return;
+      }
+      if (typeof QRCode === "undefined") {
+        alert("QRCode 套件載入失敗 (可能被網路封鎖)，無法產生條碼。");
+        return;
+      }
+      if (gemini && !confirm("此 QR Code 會包含你的 Gemini API Key 與 Firebase 設定，任何掃到的人都能取得。\n確定要產生嗎？\n(建議：只在私下環境使用，用完請關閉視窗)")) {
+        return;
+      }
 
       const payload = { cfg: cfg, gemini: gemini };
-      const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+      const encoded = b64urlEncode(JSON.stringify(payload));
       const syncUrl = `${window.location.origin}${window.location.pathname}?sync=${encoded}`;
 
       const qrBox = document.getElementById("qrcode");
@@ -320,33 +404,56 @@
       if (first !== -1 && last !== -1) {
         s = s.substring(first, last + 1);
       }
-      s = s.replace(/\/\/.*$/gm, "");
-      s = s.replace(/'/g, '"');
+      // 已是合法 JSON 就原樣回傳，避免「清理」反而破壞內容 (例如 databaseURL 內的 https://)
+      try { JSON.parse(s); return s; } catch (_) { /* 繼續寬鬆處理 JS 物件字面值 */ }
+
+      // 只移除「行首或空白後」的 // 註解，不動字串內的 https://
+      s = s.replace(/(^|\s)\/\/.*$/gm, "$1");
+      // 只轉換「整段」單引號字串，不全域取代所有 '
+      s = s.replace(/'([^'\\\n]*)'/g, (_, inner) => `"${inner.replace(/"/g, '\\"')}"`);
       s = s.replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/g, '$1"$2":');
       s = s.replace(/,\s*}/g, "}");
       return s;
     }
 
-    function initFirebase() {
+    function teardownListeners() {
+      unsubscribers.forEach(unsub => { try { unsub(); } catch (_) {} });
+      unsubscribers = [];
+    }
+
+    async function initFirebase() {
       const cfgStr = localStorage.getItem("teamsync_firebase_config");
       const badge = document.getElementById("statusBadge");
+
+      // 重新連線前：取消舊監聽、清空舊資料，避免重複監聽與跨專案資料殘留
+      teardownListeners();
+      db = null;
+      members = []; logs = []; actions = []; selectedEmail = null;
+
       if (!cfgStr) {
         badge.textContent = "(需設定 Firebase)";
         badge.className = "ml-1 text-xs text-amber-300";
         openConfigModal();
         return;
       }
+      if (typeof firebase === "undefined") {
+        badge.textContent = "🔴 Firebase SDK 載入失敗 (請檢查網路/CDN)";
+        badge.className = "ml-1 text-xs text-rose-300";
+        return;
+      }
       try {
-        const clean = cleanJsonString(cfgStr);
-        const cfg = JSON.parse(clean);
-        
-        if (!firebase.apps.length) {
-          firebase.initializeApp(cfg);
+        const cfg = JSON.parse(cleanJsonString(cfgStr));
+
+        // 若已有舊 app (設定被更換)，必須先 delete 才能用新設定 initializeApp
+        if (firebase.apps.length) {
+          await Promise.all(firebase.apps.map(a => a.delete()));
         }
+        firebase.initializeApp(cfg);
         db = firebase.firestore();
         badge.textContent = "🟢 雲端同步中";
         badge.className = "ml-1 text-xs text-emerald-300";
         setupRealtimeListeners();
+        renderUI();
       } catch (err) {
         console.error("Firebase 連線初始化失敗:", err);
         badge.textContent = "🔴 連線失敗";
@@ -357,8 +464,14 @@
     // --- Real-time Listeners ---
     function setupRealtimeListeners() {
       if (!db) return;
+      const badge = document.getElementById("statusBadge");
+      const onErr = (name) => (err) => {
+        console.error(`監聽 ${name} 失敗:`, err);
+        badge.textContent = "🔴 權限受阻/連線中斷";
+        badge.className = "ml-1 text-xs text-rose-300";
+      };
 
-      db.collection("members").onSnapshot(snapshot => {
+      unsubscribers.push(db.collection("members").onSnapshot(snapshot => {
         members = [];
         snapshot.forEach(doc => members.push({ email: doc.id, ...doc.data() }));
         if (members.length > 0 && (!selectedEmail || !members.find(m => m.email === selectedEmail))) {
@@ -366,22 +479,19 @@
           selectedEmail = firstActive ? firstActive.email : members[0].email;
         }
         renderUI();
-      }, err => {
-        console.error("監聽 members 失敗:", err);
-        document.getElementById("statusBadge").textContent = "🔴 權限受阻";
-      });
+      }, onErr("members")));
 
-      db.collection("logs").orderBy("meeting_date", "desc").onSnapshot(snapshot => {
+      unsubscribers.push(db.collection("logs").orderBy("meeting_date", "desc").onSnapshot(snapshot => {
         logs = [];
         snapshot.forEach(doc => logs.push({ id: doc.id, ...doc.data() }));
         renderUI();
-      });
+      }, onErr("logs")));
 
-      db.collection("actions").orderBy("created_at", "desc").onSnapshot(snapshot => {
+      unsubscribers.push(db.collection("actions").orderBy("created_at", "desc").onSnapshot(snapshot => {
         actions = [];
         snapshot.forEach(doc => actions.push({ id: doc.id, ...doc.data() }));
         renderUI();
-      });
+      }, onErr("actions")));
     }
 
     // --- UI Rendering ---
@@ -394,7 +504,7 @@
       const grid = document.getElementById("radarGrid");
       grid.innerHTML = "";
       const showArchived = document.getElementById("showArchivedToggle").checked;
-      const today = new Date().toISOString().split("T")[0];
+      const today = todayLocal();
 
       const filtered = members.filter(m => showArchived ? true : m.status === 'active');
 
@@ -409,7 +519,7 @@
         const mPendingActions = actions.filter(a => a.member_email === m.email && !a.is_done);
 
         const lastLog = mLogs[0];
-        const lastEnergy = lastLog ? lastLog.energy_score : 3;
+        const lastEnergy = lastLog ? (Number(lastLog.energy_score) || 3) : 3;
         const energyDot = lastEnergy >= 4 ? "🟢" : (lastEnergy === 3 ? "🟡" : "🔴");
 
         let daysLabel = "尚未對齊";
@@ -431,18 +541,18 @@
 
         card.innerHTML = `
           <div class="flex items-center justify-between mb-1">
-            <span class="font-bold text-sm truncate">${m.name}</span>
-            <span>${energyDot} <span class="text-xs">${lastEnergy}/5</span></span>
+            <span class="font-bold text-sm truncate">${esc(m.name)}</span>
+            <span>${energyDot} <span class="text-xs">${esc(lastEnergy)}/5</span></span>
           </div>
           <div class="text-xs ${isSelected ? "text-slate-300" : "text-slate-500"} flex items-center justify-between">
-            <span>🕒 ${daysLabel}</span>
+            <span>🕒 ${esc(daysLabel)}</span>
             ${mPendingActions.length > 0 ? `<span class="font-semibold ${overdueActions > 0 ? "text-rose-400" : ""}">待辦:${mPendingActions.length}</span>` : ""}
           </div>
           <div class="mt-1.5 flex flex-wrap gap-1">
             ${burnoutAlert ? `<span class="text-[10px] bg-rose-600 text-white px-1.5 py-0.5 rounded font-bold">⚠️ 連續低能量</span>` : ""}
             ${overdueActions > 0 ? `<span class="text-[10px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-bold">🔥 承諾逾期</span>` : ""}
             ${isOverdueTalk ? `<span class="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded">超期未聊</span>` : ""}
-            ${m.status !== "active" ? `<span class="text-[10px] bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded">${m.status}</span>` : ""}
+            ${m.status !== "active" ? `<span class="text-[10px] bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded">${esc(m.status)}</span>` : ""}
           </div>
         `;
         grid.appendChild(card);
@@ -455,7 +565,12 @@
 
       document.getElementById("currMemberName").textContent = m.name;
       document.getElementById("currMemberEmail").textContent = m.email;
-      document.getElementById("currPrefInput").value = m.tech_preference || "";
+      // 使用者正在輸入時不要被雲端同步事件覆蓋 (切換成員時才強制更新)
+      const prefBox = document.getElementById("currPrefInput");
+      if (document.activeElement !== prefBox || prefBox.dataset.email !== m.email) {
+        prefBox.value = m.tech_preference || "";
+        prefBox.dataset.email = m.email;
+      }
 
       const badge = document.getElementById("currMemberStatusBadge");
       if (m.status === "active") {
@@ -470,7 +585,7 @@
       const mPending = actions.filter(a => a.member_email === m.email && !a.is_done);
       const actList = document.getElementById("pendingActionsList");
       actList.innerHTML = "";
-      const today = new Date().toISOString().split("T")[0];
+      const today = todayLocal();
 
       if (mPending.length === 0) {
         actList.innerHTML = `<div class="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg p-2.5">✨ 目前沒有積欠該同仁的待辦承諾！</div>`;
@@ -482,12 +597,17 @@
             isOverdue ? "bg-rose-50 border-rose-300" : "bg-amber-50/60 border-amber-200 hover:bg-amber-50"
           }`;
           label.innerHTML = `
-            <input type="checkbox" onchange="toggleAction('${a.id}', true)" class="mt-1 rounded text-blue-600" />
+            <input type="checkbox" class="mt-1 rounded text-blue-600" />
             <div class="flex-1 text-sm">
-              <span class="font-bold ${isOverdue ? "text-rose-700" : "text-slate-800"}">[${a.owner}承諾] ${a.content}</span>
-              ${a.due_date ? `<span class="ml-2 text-xs px-1.5 py-0.5 rounded ${isOverdue ? "bg-rose-600 text-white font-bold" : "bg-slate-200 text-slate-700"}">期限: ${a.due_date}${isOverdue ? "(已逾期)" : ""}</span>` : ""}
+              <span class="font-bold ${isOverdue ? "text-rose-700" : "text-slate-800"}">[${esc(a.owner)}承諾] ${esc(a.content)}</span>
+              ${a.due_date ? `<span class="ml-2 text-xs px-1.5 py-0.5 rounded ${isOverdue ? "bg-rose-600 text-white font-bold" : "bg-slate-200 text-slate-700"}">期限: ${esc(a.due_date)}${isOverdue ? "(已逾期)" : ""}</span>` : ""}
             </div>
           `;
+          // 不使用 inline onchange + 字串插值 id，避免 id 內含引號造成注入
+          label.querySelector("input").addEventListener("change", (ev) => {
+            ev.target.disabled = true;
+            toggleAction(a.id, true).then(ok => { if (!ok) ev.target.checked = false; ev.target.disabled = false; });
+          });
           actList.appendChild(label);
         });
       }
@@ -500,22 +620,25 @@
         logList.innerHTML = `<div class="text-xs text-slate-400 italic">尚無歷史對齊紀錄</div>`;
       } else {
         mLogs.forEach(l => {
-          const dot = l.energy_score >= 4 ? "🟢" : (l.energy_score === 3 ? "🟡" : "🔴");
+          const score = Number(l.energy_score) || 3;
+          const dot = score >= 4 ? "🟢" : (score === 3 ? "🟡" : "🔴");
           const div = document.createElement("div");
-          div.className = "p-3 rounded-lg border border-slate-200 bg-slate-50/60 text-sm space-y-1.5 relative group";
+          div.className = "p-3 rounded-lg border border-slate-200 bg-slate-50/60 text-sm space-y-1.5 relative";
           div.innerHTML = `
             <div class="flex items-center justify-between text-xs text-slate-500">
-              <span class="font-bold text-slate-700">${l.meeting_date}</span>
+              <span class="font-bold text-slate-700">${esc(l.meeting_date)}</span>
               <div class="flex items-center gap-2">
-                <span>能量狀態：${dot} <strong>${l.energy_score}/5</strong></span>
-                <button onclick="openEditLogModal('${l.id}')" class="text-blue-600 hover:underline px-1 py-0.5 rounded text-xs font-semibold">✏️ 編輯</button>
-                <button onclick="deleteLog('${l.id}')" class="text-rose-600 hover:underline px-1 py-0.5 rounded text-xs font-semibold">🗑️ 刪除</button>
+                <span>能量狀態：${dot} <strong>${esc(score)}/5</strong></span>
+                <button type="button" data-act="edit" class="text-blue-600 hover:underline px-1 py-0.5 rounded text-xs font-semibold">✏️ 編輯</button>
+                <button type="button" data-act="delete" class="text-rose-600 hover:underline px-1 py-0.5 rounded text-xs font-semibold">🗑️ 刪除</button>
               </div>
             </div>
-            ${l.pain_tags ? `<div class="text-xs text-blue-700 font-medium">🏷️ 痛點：${l.pain_tags}</div>` : ""}
-            <div class="text-slate-800 leading-relaxed">💬 ${l.summary_note}</div>
-            ${l.private_memo ? `<div class="text-xs text-rose-700 bg-rose-50 px-2 py-1 rounded">🔒 私密備註：${l.private_memo}</div>` : ""}
+            ${l.pain_tags ? `<div class="text-xs text-blue-700 font-medium">🏷️ 痛點：${esc(l.pain_tags)}</div>` : ""}
+            <div class="text-slate-800 leading-relaxed">💬 ${esc(l.summary_note)}</div>
+            ${l.private_memo ? `<div class="text-xs text-rose-700 bg-rose-50 px-2 py-1 rounded">🔒 私密備註：${esc(l.private_memo)}</div>` : ""}
           `;
+          div.querySelector('[data-act="edit"]').addEventListener("click", () => openEditLogModal(l.id));
+          div.querySelector('[data-act="delete"]').addEventListener("click", () => deleteLog(l.id));
           logList.appendChild(div);
         });
       }
@@ -524,18 +647,26 @@
     // --- Data Operations (CRUD) ---
     async function savePreference() {
       if (!db || !selectedEmail) return;
+      const email = selectedEmail; // 先鎖定對象，避免等待期間切換成員
       const val = document.getElementById("currPrefInput").value;
-      await db.collection("members").doc(selectedEmail).update({ tech_preference: val });
-      alert("已同步更新個人偏好至雲端！");
+      const res = await guarded("儲存個人偏好", async () => {
+        await db.collection("members").doc(email).update({ tech_preference: val });
+        return true;
+      });
+      if (res) alert("已同步更新個人偏好至雲端！");
     }
 
+    // 回傳 true/false 讓呼叫端 (勾選框) 在失敗時還原狀態
     async function toggleAction(actionId, isDone) {
-      if (!db) return;
-      const today = new Date().toISOString().split("T")[0];
-      await db.collection("actions").doc(actionId).update({
-        is_done: isDone ? 1 : 0,
-        resolved_at: isDone ? today : ""
+      if (!db || !actionId) return false;
+      const res = await guarded("更新承諾狀態", async () => {
+        await db.collection("actions").doc(actionId).update({
+          is_done: isDone ? 1 : 0,
+          resolved_at: isDone ? todayLocal() : ""
+        });
+        return true;
       });
+      return !!res;
     }
 
     // 編輯紀錄 Modal 操作
@@ -565,90 +696,143 @@
       const summary = document.getElementById("editLogSummary").value.trim();
       const memo = document.getElementById("editLogMemo").value.trim();
 
-      await db.collection("logs").doc(id).update({
-        meeting_date: date,
-        energy_score: energy,
-        pain_tags: tags,
-        summary_note: summary,
-        private_memo: memo
+      if (!date) { alert("請填寫對齊日期。"); return; }
+      const ok = await guarded("儲存談話紀錄", async () => {
+        await db.collection("logs").doc(id).update({
+          meeting_date: date,
+          energy_score: Math.min(5, Math.max(1, energy || 3)),
+          pain_tags: tags,
+          summary_note: summary,
+          private_memo: memo
+        });
+        return true;
       });
-
-      closeEditLogModal();
+      if (ok) closeEditLogModal();
     }
 
     // 刪除談話紀錄
     async function deleteLog(logId) {
       if (!confirm("確定要刪除這筆談話紀錄嗎？此動作將無法復原。")) return;
       if (!db || !logId) return;
-      await db.collection("logs").doc(logId).delete();
+      await guarded("刪除談話紀錄", () => db.collection("logs").doc(logId).delete());
+    }
+
+    // 正規化 AI / 規則解析結果：Gemini 輸出不可信，型別與範圍都要檢查
+    function normalizeParsed(p, rawText) {
+      const o = (p && typeof p === "object" && !Array.isArray(p)) ? p : {};
+      const str = v => (typeof v === "string" ? v.trim() : "");
+      const nullish = s => !s || /^(null|none|無|n\/a)$/i.test(s);
+
+      let energy = parseInt(o.energy_score, 10);
+      if (!Number.isFinite(energy)) energy = 3;
+      energy = Math.min(5, Math.max(1, energy));
+
+      const tags = Array.isArray(o.pain_tags)
+        ? o.pain_tags.map(t => str(t)).filter(Boolean).join(", ")
+        : str(o.pain_tags);
+
+      const action = str(o.manager_action);
+      const due = str(o.action_due);
+      const memo = str(o.private_memo);
+
+      return {
+        energy_score: energy,
+        pain_tags: tags,
+        summary_note: str(o.summary_note) || rawText,
+        manager_action: nullish(action) ? "" : action,
+        action_due: /^\d{4}-\d{2}-\d{2}$/.test(due) ? due : "",
+        private_memo: nullish(memo) ? "" : memo
+      };
     }
 
     async function submitLog() {
+      // 防重複送出：Ctrl+Enter 不會經過按鈕的 disabled 狀態，必須在這裡擋
+      if (isSubmitting) return;
       const rawText = document.getElementById("rawNoteInput").value.trim();
       if (!rawText || !selectedEmail || !db) return;
 
+      // 鎖定寫入對象與資料庫：AI 分析期間使用者可能點到別的成員或重新連線
+      const targetEmail = selectedEmail;
+      const targetDb = db;
+
+      isSubmitting = true;
       const btn = document.getElementById("submitBtn");
       btn.disabled = true;
       btn.textContent = "⏳ 正在分析並寫入雲端...";
 
-      const manualEnergy = document.getElementById("manualEnergy").value;
-      const manualDueDate = document.getElementById("manualDueDate").value;
-      const geminiKey = localStorage.getItem("teamsync_gemini_key") || "";
+      try {
+        const manualEnergy = document.getElementById("manualEnergy").value;
+        const manualDueDate = document.getElementById("manualDueDate").value;
+        const geminiKey = localStorage.getItem("teamsync_gemini_key") || "";
 
-      let parsed = null;
-      if (geminiKey.trim()) {
-        try {
-          parsed = await callGemini(rawText, geminiKey);
-        } catch (e) {
-          console.warn("Gemini 呼叫失敗，改走離線規則:", e);
-          alert("⚠️ Gemini API 呼叫失敗，已退回本地離線規則！\n錯誤原因：" + e.message);
+        let parsed = null;
+        if (geminiKey.trim()) {
+          try {
+            parsed = await callGemini(rawText, geminiKey);
+          } catch (e) {
+            console.warn("Gemini 呼叫失敗，改走離線規則:", e);
+            alert("⚠️ Gemini API 呼叫失敗，已退回本地離線規則！\n錯誤原因：" + (e && e.message ? e.message : e));
+            parsed = fallbackParse(rawText);
+          }
+        } else {
           parsed = fallbackParse(rawText);
         }
-      } else {
-        parsed = fallbackParse(rawText);
-      }
+        parsed = normalizeParsed(parsed, rawText);
 
-      const today = new Date().toISOString().split("T")[0];
-      const energy = manualEnergy ? parseInt(manualEnergy) : (parsed.energy_score || 3);
-      const tagsStr = Array.isArray(parsed.pain_tags) ? parsed.pain_tags.join(", ") : (parsed.pain_tags || "");
-      const summary = parsed.summary_note || rawText;
-      const memo = parsed.private_memo || "";
-      const actContent = parsed.manager_action;
-      const actDue = manualDueDate || parsed.action_due || "";
+        if (targetDb !== db) {
+          alert("分析期間雲端連線已變更，本次記錄未寫入，請重新送出。");
+          return;
+        }
 
-      await db.collection("logs").add({
-        member_email: selectedEmail,
-        meeting_date: today,
-        energy_score: energy,
-        pain_tags: tagsStr,
-        summary_note: summary,
-        private_memo: memo,
-        raw_input: rawText,
-        created_at: firebase.firestore.FieldValue.serverTimestamp()
-      });
+        const today = todayLocal();
+        const energy = manualEnergy ? parseInt(manualEnergy, 10) : parsed.energy_score;
+        const actDue = manualDueDate || parsed.action_due || "";
 
-      if (actContent && actContent.trim() && actContent.toLowerCase() !== "null") {
-        await db.collection("actions").add({
-          member_email: selectedEmail,
-          owner: "主管",
-          content: actContent.trim(),
-          due_date: actDue,
-          is_done: 0,
-          created_at: today,
-          resolved_at: ""
+        // 日誌與承諾用同一個 batch 寫入：要嘛都成功、要嘛都不寫，避免重試造成重複日誌
+        const batch = targetDb.batch();
+        batch.set(targetDb.collection("logs").doc(), {
+          member_email: targetEmail,
+          meeting_date: today,
+          energy_score: energy,
+          pain_tags: parsed.pain_tags,
+          summary_note: parsed.summary_note,
+          private_memo: parsed.private_memo,
+          raw_input: rawText,
+          created_at: firebase.firestore.FieldValue.serverTimestamp()
         });
-      }
+        if (parsed.manager_action) {
+          batch.set(targetDb.collection("actions").doc(), {
+            member_email: targetEmail,
+            owner: "主管",
+            content: parsed.manager_action,
+            due_date: actDue,
+            is_done: 0,
+            created_at: today,
+            resolved_at: ""
+          });
+        }
 
-      document.getElementById("rawNoteInput").value = "";
-      document.getElementById("manualEnergy").value = "";
-      document.getElementById("manualDueDate").value = "";
-      btn.disabled = false;
-      btn.textContent = "⚡ AI 分析並同步至雲端 (Ctrl + Enter)";
+        const result = await withTimeout(batch.commit(), 15000);
+        if (result === "__timeout__") {
+          alert("⏳ 雲端 15 秒內未回應 (可能離線)。記錄已排入佇列，連線恢復後會自動同步，請勿重複送出。");
+        }
+
+        document.getElementById("rawNoteInput").value = "";
+        document.getElementById("manualEnergy").value = "";
+        document.getElementById("manualDueDate").value = "";
+      } catch (err) {
+        console.error("送出記錄失敗:", err);
+        alert("⚠️ 記錄寫入失敗，輸入內容已保留，可再試一次。\n原因：" + (err && err.message ? err.message : err));
+      } finally {
+        isSubmitting = false;
+        btn.disabled = false;
+        btn.textContent = SUBMIT_LABEL;
+      }
     }
 
     // --- AI Parsing Logic (自動探索可用模型並呼叫) ---
     async function callGemini(text, apiKey) {
-      const today = new Date().toISOString().split("T")[0];
+      const today = todayLocal();
       const prompt = `你是一位研發主管的 1-on-1 秘書。請從主管口述中提煉出精準的工作重點摘要與承諾，輸出合法 JSON（禁止 markdown 代碼塊）：
 {
   "energy_score": 1到5的整數 (未提及預設3),
@@ -661,58 +845,91 @@
 口述內容：${text}`;
 
       const key = apiKey.trim();
+      const API = "https://generativelanguage.googleapis.com/v1beta";
+      // Key 放在標頭而非網址，避免出現在瀏覽器歷史 / 代理伺服器 / 除錯記錄的 URL 中
+      const authHeaders = { "x-goog-api-key": key };
+
+      // 帶逾時的 fetch：避免網路卡住時整個流程永遠不返回
+      async function fetchWithTimeout(url, options = {}, ms = 20000) {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), ms);
+        try {
+          return await fetch(url, { ...options, signal: ctrl.signal });
+        } catch (e) {
+          if (e && e.name === "AbortError") throw new Error(`連線逾時 (${ms / 1000} 秒)`);
+          throw e;
+        } finally {
+          clearTimeout(timer);
+        }
+      }
+
+      // 金鑰/權限類錯誤：換模型也沒用，必須立刻中止
+      const isAuthError = (status, body) =>
+        status === 401 || status === 403 ||
+        (status === 400 && /API[_ ]KEY|api key not valid|API_KEY_INVALID/i.test(body));
 
       // 1. 動態取得目前帳號支援 generateContent 的模型清單
       let availableModels = [];
       try {
-        const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
+        const listRes = await fetchWithTimeout(`${API}/models`, { headers: authHeaders }, 10000);
         if (listRes.ok) {
           const listData = await listRes.json();
           availableModels = (listData.models || [])
             .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"))
             .map(m => m.name.replace("models/", ""));
+        } else {
+          const body = await listRes.text();
+          if (isAuthError(listRes.status, body)) {
+            throw new Error(`API Key 無效或無權限 (HTTP ${listRes.status})`);
+          }
         }
       } catch (e) {
+        if (/API Key 無效/.test(e.message)) throw e;
         console.warn("無法取得模型清單，使用預設候選", e);
       }
 
-      // 優先挑選 flash 輕量系列，若無則按清單順序，最後保底
-      const preferred = ["gemini-1.5-flash-8b", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro"];
-      let targetModels = preferred.filter(m => availableModels.includes(m));
-      if (targetModels.length === 0) {
-        targetModels = availableModels.length > 0 ? availableModels : ["gemini-1.5-flash", "gemini-pro"];
-      }
+      // 2. 挑選模型：不寫死已下架的版本名稱，改由清單動態挑 flash(便宜快速) → pro，
+      //    排除 tts/image/live/embedding 等不支援 JSON 文字輸出的變體，最多嘗試 4 個
+      const unsuitable = /(tts|image|live|audio|embedding|robotics|computer|learnlm|gemma|aqa|vision|thinking|exp)/i;
+      const pick = re => availableModels.filter(m => re.test(m) && !unsuitable.test(m)).sort().reverse();
+      let targetModels = [...pick(/flash/i), ...pick(/pro/i)].slice(0, 4);
+      if (targetModels.length === 0) targetModels = ["gemini-2.5-flash", "gemini-2.0-flash"];
 
       let lastError = null;
       for (const model of targetModels) {
         try {
-          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
+          const res = await fetchWithTimeout(`${API}/models/${encodeURIComponent(model)}:generateContent`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...authHeaders },
             body: JSON.stringify({
               contents: [{ parts: [{ text: prompt }] }],
               generationConfig: { responseMimeType: "application/json" }
             })
           });
 
-          if (res.ok) {
-            const data = await res.json();
-            return JSON.parse(data.candidates[0].content.parts[0].text);
+          if (!res.ok) {
+            const errText = await res.text();
+            const err = new Error(`[${model}] HTTP ${res.status}: ${errText.slice(0, 300)}`);
+            if (isAuthError(res.status, errText)) { err.fatal = true; throw err; }
+            lastError = err;
+            continue; // 塞車 (429/503)、模型不存在/不支援等：換下一個模型
           }
 
-          const errText = await res.text();
-          lastError = new Error(`[${model}] HTTP ${res.status}: ${errText}`);
-          if (res.status === 503 || res.status === 429) {
-            continue; // 遇到 503 塞車自動換下一個模型
-          } else {
-            throw lastError;
+          const data = await res.json();
+          const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (!text) {
+            const reason = data?.candidates?.[0]?.finishReason || data?.promptFeedback?.blockReason || "無內容";
+            lastError = new Error(`[${model}] 回應為空 (${reason})`);
+            continue;
           }
+          return JSON.parse(text);
         } catch (err) {
+          if (err.fatal) throw err; // 金鑰問題直接中止，不再浪費其他模型的額度與時間
           lastError = err;
         }
       }
 
-      throw lastError;
+      throw lastError || new Error("沒有可用的 Gemini 模型");
     }
 
     // 優化離線規則解析：自動分離口述贅詞與主管承諾
@@ -760,21 +977,36 @@
         };
         recognition.onend = () => {
           isRecording = false;
-          document.getElementById("voiceBtn").className = "w-full mb-3 py-2.5 px-4 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-medium text-sm flex items-center justify-center gap-2 transition";
+          document.getElementById("voiceBtn").className = VOICE_BTN_IDLE;
           document.getElementById("voiceText").textContent = "按此開始語音口述 (或直接打字)";
+        };
+        recognition.onerror = (e) => {
+          console.warn("語音辨識錯誤:", e.error);
+          if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+            alert("無法使用麥克風：請允許瀏覽器的麥克風權限 (需 https 或 localhost)。");
+          }
         };
       }
       if (isRecording) {
         recognition.stop();
       } else {
+        try {
+          recognition.start();
+        } catch (e) {
+          console.warn("語音辨識無法啟動:", e);
+          return;
+        }
         isRecording = true;
-        recognition.start();
-        document.getElementById("voiceBtn").className = "w-full mb-3 py-2.5 px-4 rounded-lg bg-rose-600 text-white font-bold text-sm flex items-center justify-center gap-2 animate-pulse";
+        document.getElementById("voiceBtn").className = VOICE_BTN_REC;
         document.getElementById("voiceText").textContent = "正在聆聽口述中... (再點一下停止)";
       }
     }
 
     function exportExcel() {
+      if (typeof XLSX === "undefined") {
+        alert("Excel 匯出套件載入失敗 (可能被網路封鎖)，請檢查網路後重新整理。");
+        return;
+      }
       const wb = XLSX.utils.book_new();
       const logRows = logs.map(l => {
         const m = members.find(x => x.email === l.member_email);
@@ -807,8 +1039,7 @@
       const wsActs = XLSX.utils.json_to_sheet(actRows);
       XLSX.utils.book_append_sheet(wb, wsActs, "主管承諾閉環表");
 
-      const today = new Date().toISOString().split("T")[0];
-      XLSX.writeFile(wb, `TeamSync_1on1_${today}.xlsx`);
+      XLSX.writeFile(wb, `TeamSync_1on1_${todayLocal()}.xlsx`);
     }
 
     function openConfigModal() {
@@ -818,13 +1049,13 @@
       document.getElementById("configModal").classList.replace("hidden", "flex");
     }
     function closeConfigModal() { document.getElementById("configModal").classList.replace("flex", "hidden"); }
-    function saveConfig() {
+    async function saveConfig() {
       const cfg = document.getElementById("firebaseConfigInput").value.trim();
       const gemini = document.getElementById("geminiKeyInput").value.trim();
       localStorage.setItem("teamsync_firebase_config", cfg);
       localStorage.setItem("teamsync_gemini_key", gemini);
       closeConfigModal();
-      initFirebase();
+      await initFirebase();
     }
 
     function openBatchModal() { document.getElementById("batchModal").classList.replace("hidden", "flex"); }
@@ -832,23 +1063,49 @@
     async function submitBatchImport() {
       if (!db) { alert("請先完成 Firebase 連線設定！"); return; }
       const lines = document.getElementById("batchTextarea").value.split("\n");
-      const batch = db.batch();
-      const today = new Date().toISOString().split("T")[0];
+      const today = todayLocal();
+      const emailRe = /^[^\s@\/]+@[^\s@\/]+\.[^\s@\/]+$/; // 排除含 "/" 的值 (Firestore 文件 ID 不可含斜線)
 
+      const entries = [];
+      const skipped = [];
       lines.forEach(line => {
+        if (!line.trim()) return;
         const parts = line.split(/[,，\t]+/).map(s => s.trim()).filter(Boolean);
-        if (parts.length >= 2) {
-          const name = parts[0];
-          const email = parts[1].toLowerCase();
-          const ref = db.collection("members").doc(email);
-          batch.set(ref, { name, email, status: "active", archive_reason: "", tech_preference: "", created_at: today }, { merge: true });
+        if (parts.length >= 2 && emailRe.test(parts[1])) {
+          entries.push({ name: parts[0], email: parts[1].toLowerCase() });
+        } else {
+          skipped.push(line.trim());
         }
       });
 
-      await batch.commit();
+      if (entries.length === 0) {
+        alert("沒有可匯入的有效資料。格式：姓名, 公司Email");
+        return;
+      }
+
+      const ok = await guarded("批次匯入", async () => {
+        // Firestore 單一 batch 上限 500 筆，保守以 400 為一批
+        for (let i = 0; i < entries.length; i += 400) {
+          const batch = db.batch();
+          entries.slice(i, i + 400).forEach(({ name, email }) => {
+            const ref = db.collection("members").doc(email);
+            const existing = members.find(m => m.email === email);
+            if (existing) {
+              // 已存在的成員只更新姓名，不可重設 status / 偏好 / 封存原因 (否則會把封存者變回在職並清空備忘)
+              batch.set(ref, { name }, { merge: true });
+            } else {
+              batch.set(ref, { name, email, status: "active", archive_reason: "", tech_preference: "", created_at: today });
+            }
+          });
+          await batch.commit();
+        }
+        return true;
+      });
+      if (!ok) return;
+
       document.getElementById("batchTextarea").value = "";
       closeBatchModal();
-      alert("成功批次寫入雲端！");
+      alert(`成功批次寫入雲端 ${entries.length} 筆！` + (skipped.length ? `\n已略過格式不正確的 ${skipped.length} 行：\n` + skipped.slice(0, 5).join("\n") : ""));
     }
 
     function openArchiveModal() {
@@ -861,10 +1118,14 @@
     function closeArchiveModal() { document.getElementById("archiveModal").classList.replace("flex", "hidden"); }
     async function submitArchiveStatus() {
       if (!db || !selectedEmail) return;
+      const email = selectedEmail;
       const st = document.getElementById("archiveStatusSelect").value;
       const re = document.getElementById("archiveReasonInput").value;
-      await db.collection("members").doc(selectedEmail).update({ status: st, archive_reason: re });
-      closeArchiveModal();
+      const ok = await guarded("更新成員狀態", async () => {
+        await db.collection("members").doc(email).update({ status: st, archive_reason: re });
+        return true;
+      });
+      if (ok) closeArchiveModal();
     }
   </script>
 </body>
