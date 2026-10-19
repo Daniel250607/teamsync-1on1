@@ -12,6 +12,20 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <!-- QRCode.js (手機一鍵同步用) -->
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <style>
+    /* Compact horizontal member strip: fixed height, slim scrollbar */
+    .member-scroll {
+      scrollbar-width: thin;
+      scrollbar-color: #94a3b8 transparent;
+      scroll-snap-type: x proximity;
+      overscroll-behavior-x: contain;
+      -webkit-overflow-scrolling: touch;
+    }
+    .member-scroll::-webkit-scrollbar { height: 6px; }
+    .member-scroll::-webkit-scrollbar-track { background: transparent; }
+    .member-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+    .member-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  </style>
 </head>
 <body class="bg-slate-100 text-slate-800 min-h-screen pb-12">
 
@@ -37,17 +51,20 @@
   </header>
 
   <main class="max-w-7xl mx-auto px-4 mt-5 space-y-6">
-    <!-- 1. 團隊全景雷達牆 -->
+    <!-- 1. 成員狀態總覽 -->
     <section>
       <div class="flex items-center justify-between mb-2">
-        <h2 class="text-sm font-bold text-slate-600 uppercase tracking-wider">📡 團隊全景雷達牆 (點擊切換同仁)</h2>
+        <h2 class="text-sm font-bold text-slate-600 tracking-wider">
+          成員狀態總覽
+          <span id="radarCount" class="ml-1 text-xs font-normal text-slate-400"></span>
+        </h2>
         <label class="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
           <input type="checkbox" id="showArchivedToggle" onchange="renderUI()" class="rounded" />
           顯示已離職/轉調封存成員
         </label>
       </div>
-      <div id="radarGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5">
-        <div class="col-span-full py-8 text-center text-slate-400 text-sm">載入資料中或請先設定 Firebase 連線...</div>
+      <div id="radarGrid" role="list" aria-label="成員狀態總覽" class="member-scroll flex gap-2.5 overflow-x-auto pb-2">
+        <div class="w-full py-8 text-center text-slate-400 text-sm">載入資料中或請先設定 Firebase 連線...</div>
       </div>
     </section>
 
@@ -265,6 +282,8 @@
     const VOICE_BTN_IDLE = `${VOICE_BTN_BASE} bg-slate-800 hover:bg-slate-700 font-medium`;
     const VOICE_BTN_REC = `${VOICE_BTN_BASE} bg-rose-600 font-bold animate-pulse`;
     const SUBMIT_LABEL = "⚡ AI 分析並同步至雲端 (Ctrl + Enter)";
+    // Version marker for logs whose actions carry an explicit `source_log_id` link
+    const ACTION_LINK_SCHEMA = 1;
 
     // --- Helpers ---
     // HTML 跳脫：所有寫進 innerHTML 的外部資料 (Firestore / AI 輸出) 都必須先經過這裡
@@ -273,10 +292,12 @@
     }
 
     // 本地時區 YYYY-MM-DD (toISOString 會是 UTC，台灣 00:00~08:00 會差一天)
-    function todayLocal() {
-      const d = new Date();
+    function dateToLocal(d) {
       const p = n => String(n).padStart(2, "0");
       return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+    }
+    function todayLocal() {
+      return dateToLocal(new Date());
     }
 
     // URL-safe Base64 (UTF-8)；解碼時同時容忍舊版 (+ / =) 與被 URLSearchParams 轉成空白的 +
@@ -502,17 +523,23 @@
 
     function renderRadar() {
       const grid = document.getElementById("radarGrid");
+      // Preserve horizontal scroll position across re-renders (renderUI runs on every snapshot / click)
+      const prevScroll = grid.scrollLeft;
+      // Remember keyboard focus so rebuilding the cards does not drop it
+      const focusedEmail = grid.contains(document.activeElement) ? document.activeElement.dataset.email : null;
       grid.innerHTML = "";
       const showArchived = document.getElementById("showArchivedToggle").checked;
       const today = todayLocal();
 
       const filtered = members.filter(m => showArchived ? true : m.status === 'active');
+      document.getElementById("radarCount").textContent = filtered.length > 0 ? `(${filtered.length} 人)` : "";
 
       if (filtered.length === 0) {
-        grid.innerHTML = `<div class="col-span-full py-6 text-center text-slate-400 text-sm">尚無同仁名單，請點擊上方「批次匯入」</div>`;
+        grid.innerHTML = `<div class="w-full py-6 text-center text-slate-400 text-sm">尚無同仁名單，請點擊上方「批次匯入」</div>`;
         return;
       }
 
+      let selectedCard = null;
       filtered.forEach(m => {
         const isSelected = m.email === selectedEmail;
         const mLogs = logs.filter(l => l.member_email === m.email);
@@ -533,30 +560,58 @@
         const burnoutAlert = mLogs.length >= 2 && mLogs[0].energy_score <= 2 && mLogs[1].energy_score <= 2;
         const overdueActions = mPendingActions.filter(a => a.due_date && a.due_date < today).length;
 
+        // Full-text tooltip so nothing is lost when badges are clipped in the compact card
+        const hints = [];
+        if (burnoutAlert) hints.push("連續低能量");
+        if (overdueActions > 0) hints.push(`承諾逾期 ${overdueActions} 筆`);
+        if (isOverdueTalk) hints.push("超期未聊");
+        if (m.status !== "active") hints.push(m.status);
+        const tooltip = [m.name, `能量 ${lastEnergy}/5`, daysLabel, `待辦 ${mPendingActions.length}`, ...hints].join(" ・ ");
+
+        // Fixed-size card in a horizontal scroller: height stays constant regardless of member count
         const card = document.createElement("div");
-        card.onclick = () => { selectedEmail = m.email; renderUI(); };
-        card.className = `cursor-pointer rounded-xl p-3 border transition ${
+        card.setAttribute("role", "listitem");
+        card.tabIndex = 0;
+        card.title = tooltip;
+        card.dataset.email = m.email;
+        const select = () => { selectedEmail = m.email; renderUI(); };
+        card.addEventListener("click", select);
+        card.addEventListener("keydown", (ev) => {
+          if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); select(); }
+        });
+        card.className = `snap-start shrink-0 w-40 sm:w-44 h-[88px] overflow-hidden cursor-pointer rounded-lg px-2.5 py-2 border transition flex flex-col justify-between ${
           isSelected ? "bg-slate-900 text-white border-slate-900 shadow-md" : "bg-white hover:border-slate-400 border-slate-200"
         }`;
+        if (isSelected) { card.setAttribute("aria-current", "true"); selectedCard = card; }
 
         card.innerHTML = `
-          <div class="flex items-center justify-between mb-1">
+          <div class="flex items-center justify-between gap-1">
             <span class="font-bold text-sm truncate">${esc(m.name)}</span>
-            <span>${energyDot} <span class="text-xs">${esc(lastEnergy)}/5</span></span>
+            <span class="shrink-0 text-xs">${energyDot} ${esc(lastEnergy)}/5</span>
           </div>
-          <div class="text-xs ${isSelected ? "text-slate-300" : "text-slate-500"} flex items-center justify-between">
-            <span>🕒 ${esc(daysLabel)}</span>
-            ${mPendingActions.length > 0 ? `<span class="font-semibold ${overdueActions > 0 ? "text-rose-400" : ""}">待辦:${mPendingActions.length}</span>` : ""}
+          <div class="text-xs ${isSelected ? "text-slate-300" : "text-slate-500"} flex items-center justify-between gap-1">
+            <span class="truncate">🕒 ${esc(daysLabel)}</span>
+            ${mPendingActions.length > 0 ? `<span class="shrink-0 font-semibold ${overdueActions > 0 ? "text-rose-400" : ""}">待辦 ${mPendingActions.length}</span>` : ""}
           </div>
-          <div class="mt-1.5 flex flex-wrap gap-1">
-            ${burnoutAlert ? `<span class="text-[10px] bg-rose-600 text-white px-1.5 py-0.5 rounded font-bold">⚠️ 連續低能量</span>` : ""}
-            ${overdueActions > 0 ? `<span class="text-[10px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-bold">🔥 承諾逾期</span>` : ""}
-            ${isOverdueTalk ? `<span class="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded">超期未聊</span>` : ""}
-            ${m.status !== "active" ? `<span class="text-[10px] bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded">${esc(m.status)}</span>` : ""}
+          <div class="flex flex-nowrap gap-1 overflow-hidden h-4">
+            ${burnoutAlert ? `<span class="shrink-0 text-[10px] leading-4 bg-rose-600 text-white px-1 rounded font-bold">⚠️ 低能量</span>` : ""}
+            ${overdueActions > 0 ? `<span class="shrink-0 text-[10px] leading-4 bg-amber-500 text-white px-1 rounded font-bold">🔥 逾期</span>` : ""}
+            ${isOverdueTalk ? `<span class="shrink-0 text-[10px] leading-4 bg-slate-200 text-slate-700 px-1 rounded">久未聊</span>` : ""}
+            ${m.status !== "active" ? `<span class="shrink-0 text-[10px] leading-4 bg-purple-100 text-purple-800 px-1 rounded">${esc(m.status)}</span>` : ""}
           </div>
         `;
         grid.appendChild(card);
+        if (focusedEmail && focusedEmail === m.email) card.focus({ preventScroll: true });
       });
+
+      // Restore scroll, then nudge only if the selected card is outside the visible strip
+      grid.scrollLeft = prevScroll;
+      if (selectedCard) {
+        const left = selectedCard.offsetLeft - grid.offsetLeft;
+        const right = left + selectedCard.offsetWidth;
+        if (left < grid.scrollLeft) grid.scrollLeft = left;
+        else if (right > grid.scrollLeft + grid.clientWidth) grid.scrollLeft = right - grid.clientWidth;
+      }
     }
 
     function renderWorkspace() {
@@ -710,11 +765,64 @@
       if (ok) closeEditLogModal();
     }
 
-    // 刪除談話紀錄
+    // Pending actions explicitly linked to a log via source_log_id (new data model)
+    function getLinkedPendingActions(logId) {
+      return actions.filter(a => a.source_log_id === logId && !a.is_done);
+    }
+
+    // Best-effort lookup for legacy data (no source_log_id): only for logs created before linkage existed,
+    // same member, pending, and created on the same local day the log was created.
+    function getLegacyCandidateActions(log) {
+      if (!log || log.link_schema) return [];
+      let createdDay = "";
+      try {
+        const ts = log.created_at;
+        createdDay = ts && typeof ts.toDate === "function" ? dateToLocal(ts.toDate()) : (log.meeting_date || "");
+      } catch (_) { createdDay = log.meeting_date || ""; }
+      if (!createdDay) return [];
+      return actions.filter(a =>
+        !a.source_log_id && !a.is_done &&
+        a.member_email === log.member_email &&
+        a.created_at === createdDay
+      );
+    }
+
+    // Delete a log together with its linked pending actions in one atomic batch
     async function deleteLog(logId) {
-      if (!confirm("確定要刪除這筆談話紀錄嗎？此動作將無法復原。")) return;
       if (!db || !logId) return;
-      await guarded("刪除談話紀錄", () => db.collection("logs").doc(logId).delete());
+      const log = logs.find(l => l.id === logId);
+      const linked = getLinkedPendingActions(logId);
+
+      const msg = linked.length > 0
+        ? `確定要刪除這筆談話紀錄嗎？\n\n同時會一併刪除由此談話產生的 ${linked.length} 筆未結案承諾：\n` +
+          linked.map(a => `・${a.content}`).join("\n") + `\n\n此動作將無法復原。`
+        : "確定要刪除這筆談話紀錄嗎？此動作將無法復原。";
+      if (!confirm(msg)) return;
+
+      // Legacy fallback: ask separately because the match is heuristic and must not delete silently
+      let legacy = [];
+      const legacyCandidates = getLegacyCandidateActions(log);
+      if (legacyCandidates.length > 0 && confirm(
+        `偵測到 ${legacyCandidates.length} 筆舊版資料的未結案承諾，疑似由這筆談話產生 (同成員、同一天建立)：\n` +
+        legacyCandidates.map(a => `・${a.content}`).join("\n") +
+        `\n\n要一併刪除嗎？\n按「取消」則只刪除談話紀錄，保留這些承諾。`
+      )) {
+        legacy = legacyCandidates;
+      }
+
+      const targetDb = db; // lock the connection used for the whole operation
+      const toDelete = [...linked, ...legacy];
+      await guarded("刪除談話紀錄", async () => {
+        const batch = targetDb.batch();
+        batch.delete(targetDb.collection("logs").doc(logId));
+        toDelete.forEach(a => batch.delete(targetDb.collection("actions").doc(a.id)));
+        // Offline writes are queued and never resolve; time out so the UI is not left waiting
+        const result = await withTimeout(batch.commit(), 15000);
+        if (result === "__timeout__") {
+          alert("⏳ 雲端 15 秒內未回應 (可能離線)。刪除已排入佇列，連線恢復後會自動同步。");
+        }
+        return true;
+      });
     }
 
     // 正規化 AI / 規則解析結果：Gemini 輸出不可信，型別與範圍都要檢查
@@ -790,7 +898,10 @@
 
         // 日誌與承諾用同一個 batch 寫入：要嘛都成功、要嘛都不寫，避免重試造成重複日誌
         const batch = targetDb.batch();
-        batch.set(targetDb.collection("logs").doc(), {
+        // Pre-generate the log ref so linked actions can store its id (source_log_id) in the same atomic batch
+        const logRef = targetDb.collection("logs").doc();
+        batch.set(logRef, {
+          link_schema: ACTION_LINK_SCHEMA, // marks logs created with explicit action linkage (legacy logs lack this)
           member_email: targetEmail,
           meeting_date: today,
           energy_score: energy,
@@ -802,6 +913,7 @@
         });
         if (parsed.manager_action) {
           batch.set(targetDb.collection("actions").doc(), {
+            source_log_id: logRef.id, // link back to the originating 1-on-1 log (used for cascading delete)
             member_email: targetEmail,
             owner: "主管",
             content: parsed.manager_action,
