@@ -81,9 +81,14 @@
               </div>
               <p id="currMemberEmail" class="text-xs text-slate-500">--</p>
             </div>
-            <button onclick="openArchiveModal()" class="text-xs text-slate-500 hover:text-rose-600 border border-slate-200 px-2.5 py-1 rounded">
-              📦 狀態/封存管理
-            </button>
+            <div class="flex items-center gap-2">
+              <button onclick="openEditMemberModal()" class="text-xs text-slate-500 hover:text-blue-600 border border-slate-200 px-2.5 py-1 rounded">
+                ✏️ 修改成員資訊
+              </button>
+              <button onclick="openArchiveModal()" class="text-xs text-slate-500 hover:text-rose-600 border border-slate-200 px-2.5 py-1 rounded">
+                📦 狀態/封存管理
+              </button>
+            </div>
           </div>
 
           <!-- 個人偏好 -->
@@ -152,13 +157,38 @@
 
   <!-- 批次匯入 Modal -->
   <div id="batchModal" role="dialog" aria-modal="true" aria-labelledby="batchModalTitle" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
-    <div class="bg-white rounded-xl max-w-lg w-full p-5 shadow-xl">
+    <div class="bg-white rounded-xl max-w-2xl w-full p-5 shadow-xl">
       <h3 id="batchModalTitle" class="text-lg font-bold mb-1">👥 批次匯入成員名單</h3>
-      <p class="text-xs text-slate-500 mb-3">每行一位，格式：<code class="bg-slate-100 px-1">姓名, 公司Email</code></p>
-      <textarea id="batchTextarea" aria-label="批次匯入成員名單" rows="6" placeholder="Alex Chen, alex.chen@company.com&#10;Kevin Lin, kevin.lin@company.com" class="w-full text-sm border rounded-lg p-3 mb-4 font-mono"></textarea>
+      <p class="text-xs text-slate-500 mb-3">左欄貼上姓名、右欄貼上公司 Email，每行一位，兩欄行數必須一致且依序對應。</p>
+      <div class="grid grid-cols-2 gap-4 mb-4">
+        <div>
+          <label for="batchNames" class="block text-xs font-bold text-slate-600 mb-1">姓名 (每行一位)</label>
+          <textarea id="batchNames" rows="8" placeholder="Alex Chen&#10;Kevin Lin" class="w-full text-sm border rounded-lg p-3 font-mono whitespace-pre overflow-x-auto"></textarea>
+        </div>
+        <div>
+          <label for="batchEmails" class="block text-xs font-bold text-slate-600 mb-1">公司 Email (每行一個)</label>
+          <textarea id="batchEmails" rows="8" placeholder="alex.chen@company.com&#10;kevin.lin@company.com" class="w-full text-sm border rounded-lg p-3 font-mono whitespace-pre overflow-x-auto"></textarea>
+        </div>
+      </div>
       <div class="flex justify-end gap-2">
         <button onclick="closeBatchModal()" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">取消</button>
         <button onclick="submitBatchImport()" class="px-4 py-2 text-sm bg-blue-600 text-white font-bold rounded-lg">一鍵寫入雲端</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 修改成員資訊 Modal -->
+  <div id="editMemberModal" role="dialog" aria-modal="true" aria-labelledby="editMemberModalTitle" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-xl max-w-md w-full p-5 shadow-xl">
+      <h3 id="editMemberModalTitle" class="text-lg font-bold mb-2">✏️ 修改成員資訊</h3>
+      <p class="text-xs text-slate-500 mb-4">Email 為成員唯一識別碼，無法修改；僅可更新顯示姓名。</p>
+      <label for="editMemberEmailInput" class="block text-xs font-bold text-slate-600 mb-1">公司 Email (唯讀)</label>
+      <input type="text" id="editMemberEmailInput" readonly disabled class="w-full border rounded-lg p-2 text-sm mb-3 bg-slate-100 text-slate-500 cursor-not-allowed" />
+      <label for="editMemberNameInput" class="block text-xs font-bold text-slate-600 mb-1">顯示姓名</label>
+      <input type="text" id="editMemberNameInput" maxlength="60" class="w-full border rounded-lg p-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      <div class="flex justify-end gap-2">
+        <button onclick="closeEditMemberModal()" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">取消</button>
+        <button onclick="submitEditMember()" class="px-4 py-2 text-sm bg-blue-600 text-white font-bold rounded-lg">儲存</button>
       </div>
     </div>
   </div>
@@ -1172,38 +1202,54 @@
 
     function openBatchModal() { document.getElementById("batchModal").classList.replace("hidden", "flex"); }
     function closeBatchModal() { document.getElementById("batchModal").classList.replace("flex", "hidden"); }
+    // Split a textarea into trimmed, non-empty lines
+    function parseLines(text) {
+      return String(text || "").split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    }
+
     async function submitBatchImport() {
       if (!db) { alert("請先完成 Firebase 連線設定！"); return; }
-      const lines = document.getElementById("batchTextarea").value.split("\n");
+      const targetDb = db; // lock the connection used for the whole import
       const today = todayLocal();
-      const emailRe = /^[^\s@\/]+@[^\s@\/]+\.[^\s@\/]+$/; // 排除含 "/" 的值 (Firestore 文件 ID 不可含斜線)
+      // Reject "/" because Firestore document IDs cannot contain slashes
+      const emailRe = /^[^\s@\/]+@[^\s@\/]+\.[^\s@\/]+$/;
 
-      const entries = [];
-      const skipped = [];
-      lines.forEach(line => {
-        if (!line.trim()) return;
-        const parts = line.split(/[,，\t]+/).map(s => s.trim()).filter(Boolean);
-        if (parts.length >= 2 && emailRe.test(parts[1])) {
-          entries.push({ name: parts[0], email: parts[1].toLowerCase() });
-        } else {
-          skipped.push(line.trim());
-        }
-      });
+      const names = parseLines(document.getElementById("batchNames").value);
+      const emails = parseLines(document.getElementById("batchEmails").value);
 
-      if (entries.length === 0) {
-        alert("沒有可匯入的有效資料。格式：姓名, 公司Email");
+      if (names.length === 0 || emails.length === 0) {
+        alert("姓名與 Email 兩欄都至少需要一筆資料。");
+        return;
+      }
+      if (names.length !== emails.length) {
+        alert(`兩欄行數不一致，請檢查後重試。\nLeft: ${names.length} lines, Right: ${emails.length} lines`);
         return;
       }
 
+      // Report every invalid email with its 1-based line number, then abort
+      const invalid = [];
+      emails.forEach((email, i) => { if (!emailRe.test(email)) invalid.push(`第 ${i + 1} 行：${email}`); });
+      if (invalid.length > 0) {
+        alert(`以下 ${invalid.length} 行 Email 格式不正確，未寫入任何資料：\n` +
+          invalid.slice(0, 10).join("\n") + (invalid.length > 10 ? `\n... 另有 ${invalid.length - 10} 行` : ""));
+        return;
+      }
+
+      // Normalize emails and de-duplicate within the input (last occurrence wins)
+      const byEmail = new Map();
+      names.forEach((name, i) => byEmail.set(emails[i].toLowerCase(), name));
+      const entries = [...byEmail].map(([email, name]) => ({ name, email }));
+      const dupCount = names.length - entries.length;
+
       const ok = await guarded("批次匯入", async () => {
-        // Firestore 單一 batch 上限 500 筆，保守以 400 為一批
+        // Firestore allows 500 writes per batch; stay conservative at 400
         for (let i = 0; i < entries.length; i += 400) {
-          const batch = db.batch();
+          const batch = targetDb.batch();
           entries.slice(i, i + 400).forEach(({ name, email }) => {
-            const ref = db.collection("members").doc(email);
+            const ref = targetDb.collection("members").doc(email);
             const existing = members.find(m => m.email === email);
             if (existing) {
-              // 已存在的成員只更新姓名，不可重設 status / 偏好 / 封存原因 (否則會把封存者變回在職並清空備忘)
+              // Existing member: merge name only so status / preference / archive reason are preserved
               batch.set(ref, { name }, { merge: true });
             } else {
               batch.set(ref, { name, email, status: "active", archive_reason: "", tech_preference: "", created_at: today });
@@ -1215,9 +1261,36 @@
       });
       if (!ok) return;
 
-      document.getElementById("batchTextarea").value = "";
+      document.getElementById("batchNames").value = "";
+      document.getElementById("batchEmails").value = "";
       closeBatchModal();
-      alert(`成功批次寫入雲端 ${entries.length} 筆！` + (skipped.length ? `\n已略過格式不正確的 ${skipped.length} 行：\n` + skipped.slice(0, 5).join("\n") : ""));
+      alert(`成功批次寫入雲端 ${entries.length} 筆！` + (dupCount > 0 ? `\n(輸入中有 ${dupCount} 筆重複 Email，已以最後一筆為準)` : ""));
+    }
+
+    // --- Edit member info (display name only; email is the immutable document ID) ---
+    function openEditMemberModal() {
+      const m = members.find(x => x.email === selectedEmail);
+      if (!m) { alert("請先選擇成員。"); return; }
+      document.getElementById("editMemberEmailInput").value = m.email;
+      document.getElementById("editMemberNameInput").value = m.name || "";
+      document.getElementById("editMemberModal").classList.replace("hidden", "flex");
+      document.getElementById("editMemberNameInput").focus();
+    }
+    function closeEditMemberModal() { document.getElementById("editMemberModal").classList.replace("flex", "hidden"); }
+    async function submitEditMember() {
+      if (!db) { alert("請先完成 Firebase 連線設定！"); return; }
+      // Use the email shown in the modal as the key, not selectedEmail, which may change while the modal is open
+      const email = document.getElementById("editMemberEmailInput").value;
+      const newName = document.getElementById("editMemberNameInput").value.trim();
+      if (!email) return;
+      if (!newName) { alert("姓名不可為空白。"); return; }
+
+      const ok = await guarded("修改成員資訊", async () => {
+        await db.collection("members").doc(email).update({ name: newName });
+        return true;
+      });
+      // The realtime listener refreshes the radar strip and workspace header
+      if (ok) closeEditMemberModal();
     }
 
     function openArchiveModal() {
