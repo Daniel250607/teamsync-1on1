@@ -8,6 +8,7 @@
   <!-- Firebase SDK (Compat 版) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <!-- SheetJS (匯出 Excel) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <!-- QRCode.js (手機一鍵同步用) -->
@@ -36,12 +37,20 @@
         <span class="text-xl font-bold tracking-tight">⚡ TeamSync</span>
         <span class="text-xs bg-slate-700 text-slate-200 px-2 py-0.5 rounded">Firebase 雲端同步版</span>
       </div>
-      <div class="flex items-center gap-2 text-sm">
+      <div class="flex flex-wrap items-center gap-2 text-sm">
+        <!-- Signed-in user profile (visible only when authenticated) -->
+        <div id="userInfo" class="hidden items-center gap-2 pr-1 text-slate-200">
+          <img id="userAvatar" alt="" referrerpolicy="no-referrer" class="hidden w-7 h-7 rounded-full border border-slate-600 object-cover" />
+          <span id="userName" class="max-w-[10rem] truncate text-xs"></span>
+        </div>
         <button onclick="openBatchModal()" class="bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded transition">
           👥 批次匯入
         </button>
         <button onclick="openConfigModal()" class="bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded transition">
           ⚙️ 雲端/API 設定 <span id="statusBadge" class="ml-1 text-xs text-amber-300">(未連線)</span>
+        </button>
+        <button id="signOutBtn" onclick="signOutUser()" class="hidden bg-rose-700 hover:bg-rose-600 px-3 py-1.5 rounded transition">
+          登出 (Sign Out)
         </button>
         <button onclick="exportExcel()" class="bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 rounded font-medium transition">
           📥 匯出 Excel
@@ -155,6 +164,26 @@
     </section>
   </main>
 
+  <!-- Google Sign-In gatekeeper: visible by default until Firebase confirms an authenticated user -->
+  <div id="authModal" role="dialog" aria-modal="true" aria-labelledby="authModalTitle" class="fixed inset-0 bg-slate-900 flex items-center justify-center z-[60] p-4">
+    <div class="bg-white rounded-xl max-w-sm w-full p-6 shadow-xl text-center">
+      <h3 id="authModalTitle" class="text-xl font-bold text-slate-900 mb-2">⚡ TeamSync — 請使用 Google 帳號登入</h3>
+      <p class="text-xs text-slate-500 mb-5">此系統包含機密的 1-on-1 紀錄，僅限授權主管登入後存取。</p>
+      <div id="authError" role="alert" class="hidden mb-4 text-left text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg p-2.5"></div>
+      <button id="googleSignInBtn" type="button" onclick="signInWithGoogle()" class="w-full flex items-center justify-center gap-3 py-2.5 px-4 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-medium text-sm shadow-sm transition disabled:opacity-60 disabled:cursor-not-allowed">
+        <svg class="w-5 h-5" viewBox="0 0 48 48" aria-hidden="true">
+          <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+          <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+          <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+          <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+        </svg>
+        <span>使用 Google 帳號登入 (Sign in with Google)</span>
+      </button>
+      <!-- Shown only when Firebase is not configured or failed to initialize, so the user can still reach the setup dialog -->
+      <button id="authConfigLink" type="button" onclick="openConfigModal()" class="hidden mt-4 text-xs text-slate-500 hover:text-blue-600 underline">⚙️ 雲端/API 設定</button>
+    </div>
+  </div>
+
   <!-- 批次匯入 Modal -->
   <div id="batchModal" role="dialog" aria-modal="true" aria-labelledby="batchModalTitle" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
     <div class="bg-white rounded-xl max-w-2xl w-full p-5 shadow-xl">
@@ -264,7 +293,7 @@
   </div>
 
   <!-- 雲端設定 Modal (含 QR Code 同步手機) -->
-  <div id="configModal" role="dialog" aria-modal="true" aria-labelledby="configModalTitle" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4 overflow-y-auto">
+  <div id="configModal" role="dialog" aria-modal="true" aria-labelledby="configModalTitle" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-[70] p-4 overflow-y-auto">
     <div class="bg-white rounded-xl max-w-lg w-full p-5 shadow-xl my-8">
       <div class="flex items-center justify-between mb-2">
         <h3 id="configModalTitle" class="text-lg font-bold">⚙️ 雲端資料庫設定</h3>
@@ -307,6 +336,7 @@
     let isRecording = false;
     let isSubmitting = false;
     let unsubscribers = [];
+    let authUnsubscribe = null; // detaches the current onAuthStateChanged listener
 
     const VOICE_BTN_BASE = "w-full mb-3 py-2.5 px-4 rounded-lg text-white text-sm flex items-center justify-center gap-2 transition";
     const VOICE_BTN_IDLE = `${VOICE_BTN_BASE} bg-slate-800 hover:bg-slate-700 font-medium`;
@@ -376,7 +406,7 @@
       // Esc 關閉目前開啟的 Modal
       document.addEventListener("keydown", (e) => {
         if (e.key !== "Escape") return;
-        document.querySelectorAll('[role="dialog"].flex').forEach(m => m.classList.replace("flex", "hidden"));
+        document.querySelectorAll('[role="dialog"].flex:not(#authModal)').forEach(m => m.classList.replace("flex", "hidden"));
       });
     });
 
@@ -472,11 +502,144 @@
       unsubscribers = [];
     }
 
+    function detachAuthListener() {
+      if (!authUnsubscribe) return;
+      try { authUnsubscribe(); } catch (_) {}
+      authUnsubscribe = null;
+    }
+
+    function showAuthModal() {
+      document.getElementById("authModal").classList.remove("hidden");
+    }
+
+    function hideAuthModal() {
+      document.getElementById("authModal").classList.add("hidden");
+      const errEl = document.getElementById("authError");
+      errEl.classList.add("hidden");
+      errEl.textContent = "";
+    }
+
+    function showAuthError(message) {
+      const errEl = document.getElementById("authError");
+      errEl.textContent = message;
+      errEl.classList.remove("hidden");
+    }
+
+    function updateHeaderUser(user) {
+      const info = document.getElementById("userInfo");
+      const avatar = document.getElementById("userAvatar");
+      const nameEl = document.getElementById("userName");
+      const signOutBtn = document.getElementById("signOutBtn");
+      if (user) {
+        const label = user.displayName || user.email || "";
+        nameEl.textContent = label;
+        if (user.photoURL) {
+          avatar.src = user.photoURL;
+          avatar.alt = label;
+          avatar.classList.remove("hidden");
+        } else {
+          avatar.removeAttribute("src");
+          avatar.alt = "";
+          avatar.classList.add("hidden");
+        }
+        info.classList.remove("hidden");
+        info.classList.add("flex");
+        signOutBtn.classList.remove("hidden");
+      } else {
+        nameEl.textContent = "";
+        avatar.removeAttribute("src");
+        avatar.alt = "";
+        avatar.classList.add("hidden");
+        info.classList.add("hidden");
+        info.classList.remove("flex");
+        signOutBtn.classList.add("hidden");
+      }
+    }
+
+    // Wipe in-memory records and on-screen 1-on-1 content so signed-out visitors cannot read leftover data
+    function clearSensitiveUi() {
+      members = [];
+      logs = [];
+      actions = [];
+      selectedEmail = null;
+      document.getElementById("radarCount").textContent = "";
+      document.getElementById("radarGrid").innerHTML =
+        `<div class="w-full py-8 text-center text-slate-400 text-sm">請先使用 Google 帳號登入後載入資料...</div>`;
+      document.getElementById("currMemberName").textContent = "請先選擇成員";
+      document.getElementById("currMemberEmail").textContent = "--";
+      const badge = document.getElementById("currMemberStatusBadge");
+      badge.textContent = "待選";
+      badge.className = "text-xs px-2 py-0.5 rounded bg-slate-200 text-slate-600";
+      const prefBox = document.getElementById("currPrefInput");
+      prefBox.value = "";
+      delete prefBox.dataset.email;
+      document.getElementById("pendingActionsList").innerHTML = "";
+      document.getElementById("recentLogsList").innerHTML = "";
+    }
+
+    function handleAuthStateChanged(user) {
+      if (user) {
+        hideAuthModal();
+        updateHeaderUser(user);
+        teardownListeners();
+        setupRealtimeListeners();
+        renderUI();
+        return;
+      }
+      teardownListeners();
+      clearSensitiveUi();
+      updateHeaderUser(null);
+      showAuthModal();
+    }
+
+    async function signInWithGoogle() {
+      const btn = document.getElementById("googleSignInBtn");
+      const errEl = document.getElementById("authError");
+      errEl.classList.add("hidden");
+      errEl.textContent = "";
+
+      if (typeof firebase === "undefined" || !firebase.apps.length) {
+        document.getElementById("authConfigLink").classList.remove("hidden");
+        showAuthError("請先完成雲端/API 設定後再使用 Google 帳號登入。");
+        return;
+      }
+
+      btn.disabled = true;
+      try {
+        await firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider());
+      } catch (err) {
+        const code = err && err.code;
+        if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
+          showAuthError("登入視窗已關閉，請再試一次。");
+        } else if (code === "auth/popup-blocked") {
+          showAuthError("瀏覽器封鎖了登入視窗，請允許彈出視窗後再試。");
+        } else {
+          showAuthError("Google 登入失敗：" + (err && err.message ? err.message : err));
+        }
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function signOutUser() {
+      if (typeof firebase === "undefined" || !firebase.apps.length) {
+        handleAuthStateChanged(null);
+        return;
+      }
+      try {
+        await firebase.auth().signOut();
+      } catch (err) {
+        alert("登出失敗：" + (err && err.message ? err.message : err));
+      }
+    }
+
     async function initFirebase() {
       const cfgStr = localStorage.getItem("teamsync_firebase_config");
       const badge = document.getElementById("statusBadge");
+      const authConfigLink = document.getElementById("authConfigLink");
 
-      // 重新連線前：取消舊監聽、清空舊資料，避免重複監聽與跨專案資料殘留
+      // Reconnect: drop the previous auth watcher and snapshots so a config change cannot leak old data
+      detachAuthListener();
       teardownListeners();
       db = null;
       members = []; logs = []; actions = []; selectedEmail = null;
@@ -484,12 +647,20 @@
       if (!cfgStr) {
         badge.textContent = "(需設定 Firebase)";
         badge.className = "ml-1 text-xs text-amber-300";
+        authConfigLink.classList.remove("hidden");
+        clearSensitiveUi();
+        updateHeaderUser(null);
+        showAuthModal();
         openConfigModal();
         return;
       }
       if (typeof firebase === "undefined") {
         badge.textContent = "🔴 Firebase SDK 載入失敗 (請檢查網路/CDN)";
         badge.className = "ml-1 text-xs text-rose-300";
+        authConfigLink.classList.remove("hidden");
+        clearSensitiveUi();
+        updateHeaderUser(null);
+        showAuthModal();
         return;
       }
       try {
@@ -503,18 +674,23 @@
         db = firebase.firestore();
         badge.textContent = "🟢 雲端同步中";
         badge.className = "ml-1 text-xs text-emerald-300";
-        setupRealtimeListeners();
-        renderUI();
+        authConfigLink.classList.add("hidden");
+        // Default LOCAL persistence keeps a trusted browser signed in across refreshes
+        authUnsubscribe = firebase.auth().onAuthStateChanged(handleAuthStateChanged);
       } catch (err) {
         console.error("Firebase 連線初始化失敗:", err);
         badge.textContent = "🔴 連線失敗";
         badge.className = "ml-1 text-xs text-rose-300";
+        authConfigLink.classList.remove("hidden");
+        clearSensitiveUi();
+        updateHeaderUser(null);
+        showAuthModal();
       }
     }
 
     // --- Real-time Listeners ---
     function setupRealtimeListeners() {
-      if (!db) return;
+      if (!db || typeof firebase === "undefined" || !firebase.auth().currentUser) return;
       const badge = document.getElementById("statusBadge");
       const onErr = (name) => (err) => {
         console.error(`監聽 ${name} 失敗:`, err);
