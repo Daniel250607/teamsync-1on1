@@ -304,7 +304,16 @@
       <textarea id="firebaseConfigInput" rows="4" placeholder='{"apiKey": "...", "projectId": "...", ...}' class="w-full border rounded-lg p-2.5 text-xs font-mono mb-3"></textarea>
 
       <label for="geminiKeyInput" class="block text-xs font-bold text-slate-700 mb-1">2. Google Gemini API Key (有填才會啟用雲端真實 AI 理解)</label>
-      <input type="password" id="geminiKeyInput" placeholder="AIzaSy..." class="w-full border rounded-lg p-2.5 text-sm font-mono mb-4" />
+      <div class="relative mb-1">
+        <input type="password" id="geminiKeyInput" placeholder="AIzaSy..." autocomplete="off" class="w-full border rounded-lg p-2.5 pr-10 text-sm font-mono" />
+        <button type="button" id="geminiKeyRevealBtn" title="按住以暫時顯示金鑰" aria-label="按住以暫時顯示金鑰" class="absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 rounded text-slate-400 hover:text-slate-700 select-none">
+          <svg class="w-4 h-4 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
+      </div>
+      <p id="geminiKeyFingerprint" class="text-[11px] text-slate-400 font-mono mb-4 min-h-[1rem]"></p>
 
       <div class="flex items-center justify-between gap-2 border-t pt-4">
         <button onclick="generateSyncQR()" class="px-3 py-2 text-xs bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold rounded-lg border border-indigo-200 flex items-center gap-1">
@@ -320,7 +329,7 @@
       <div id="qrContainer" class="hidden mt-4 p-4 bg-slate-50 border rounded-xl text-center">
         <p class="text-xs font-bold text-slate-700 mb-2">請打開手機相機掃描下方條碼：</p>
         <div id="qrcode" class="flex justify-center mb-2"></div>
-        <p class="text-[11px] text-slate-500">掃描後手機會直接打開此網頁並自動完成所有設定連線！</p>
+        <p class="text-[11px] text-slate-500">此為 10 分鐘內有效的一次性同步碼，兌換後立即失效。條碼不含 Gemini API Key。</p>
       </div>
     </div>
   </div>
@@ -344,6 +353,8 @@
     const SUBMIT_LABEL = "⚡ AI 分析並同步至雲端 (Ctrl + Enter)";
     // Version marker for logs whose actions carry an explicit `source_log_id` link
     const ACTION_LINK_SCHEMA = 1;
+    const SYNC_TOKEN_TTL_MS = 10 * 60 * 1000;
+    const SYNC_REDEEM_APP = "syncRedeem";
 
     // --- Helpers ---
     // HTML 跳脫：所有寫進 innerHTML 的外部資料 (Firestore / AI 輸出) 都必須先經過這裡
@@ -392,8 +403,10 @@
     }
 
     // --- Initialization ---
-    window.addEventListener("DOMContentLoaded", () => {
-      checkUrlSyncParams();
+    window.addEventListener("DOMContentLoaded", async () => {
+      bindGeminiKeyReveal();
+      document.getElementById("geminiKeyInput").addEventListener("input", updateGeminiKeyFingerprint);
+      await checkUrlSyncParams();
       initFirebase();
 
       document.getElementById("rawNoteInput").addEventListener("keydown", (e) => {
@@ -410,39 +423,152 @@
       });
     });
 
-    function checkUrlSyncParams() {
+    function randomSyncToken() {
+      const bytes = new Uint8Array(18);
+      crypto.getRandomValues(bytes);
+      let bin = "";
+      bytes.forEach(b => { bin += String.fromCharCode(b); });
+      return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    }
+
+    function publicFirebaseBootstrap(cfgStr) {
+      const cfg = JSON.parse(cleanJsonString(cfgStr));
+      const b = {};
+      ["apiKey", "authDomain", "projectId", "storageBucket", "messagingSenderId", "appId"].forEach(k => {
+        if (cfg[k]) b[k] = cfg[k];
+      });
+      if (!b.apiKey || !b.projectId) throw new Error("Firebase Config 缺少 apiKey 或 projectId");
+      return b;
+    }
+
+    function maskKeyFingerprint(key) {
+      const s = String(key || "").trim();
+      if (s.length < 8) return "";
+      return `${s.slice(0, 6)}...${s.slice(-4)}`;
+    }
+
+    function updateGeminiKeyFingerprint() {
+      const hint = document.getElementById("geminiKeyFingerprint");
+      const fp = maskKeyFingerprint(document.getElementById("geminiKeyInput").value);
+      hint.textContent = fp ? `目前金鑰：${fp}` : "";
+    }
+
+    function bindGeminiKeyReveal() {
+      const input = document.getElementById("geminiKeyInput");
+      const btn = document.getElementById("geminiKeyRevealBtn");
+      const reveal = (e) => {
+        e.preventDefault();
+        input.type = "text";
+      };
+      const mask = () => { input.type = "password"; };
+      btn.addEventListener("mousedown", reveal);
+      btn.addEventListener("mouseup", mask);
+      btn.addEventListener("mouseleave", mask);
+      btn.addEventListener("touchstart", reveal, { passive: false });
+      btn.addEventListener("touchend", mask);
+      btn.addEventListener("touchcancel", mask);
+      btn.addEventListener("blur", mask);
+      window.addEventListener("mouseup", mask);
+    }
+
+    async function deleteSyncRedeemApp() {
+      const existing = typeof firebase !== "undefined" && firebase.apps.find(a => a.name === SYNC_REDEEM_APP);
+      if (existing) {
+        try { await existing.delete(); } catch (_) {}
+      }
+    }
+
+    async function redeemSyncToken(tokenId, bootstrap) {
+      await deleteSyncRedeemApp();
+      const tempApp = firebase.initializeApp(bootstrap, SYNC_REDEEM_APP);
+      try {
+        const tempDb = tempApp.firestore();
+        const ref = tempDb.collection("sync_tokens").doc(tokenId);
+        return await tempDb.runTransaction(async (tx) => {
+          const doc = await tx.get(ref);
+          if (!doc.exists) return { ok: false, reason: "missing" };
+          const data = doc.data() || {};
+          tx.delete(ref);
+          if (data.expires_at && Number(data.expires_at) < Date.now()) {
+            return { ok: false, reason: "expired" };
+          }
+          return { ok: true, data };
+        });
+      } finally {
+        await deleteSyncRedeemApp();
+      }
+    }
+
+    async function checkUrlSyncParams() {
       const urlParams = new URLSearchParams(window.location.search);
       const syncData = urlParams.get("sync");
       if (!syncData) return;
 
-      // 先清掉網址列上的敏感參數，不論使用者之後是否同意匯入
+      // Strip the query immediately so a token never stays in the address bar / history
       window.history.replaceState({}, document.title, window.location.pathname);
 
-      try {
-        const payload = JSON.parse(b64urlDecode(syncData));
-        if (!payload || typeof payload.cfg !== "string") throw new Error("無效的同步資料");
+      if (typeof firebase === "undefined") {
+        alert("Firebase SDK 載入失敗，無法兌換同步碼。");
+        return;
+      }
 
-        // 防止惡意連結偷換設定：必須經使用者確認，並顯示將要連線的專案
-        let projectHint = "(無法辨識)";
-        const m = payload.cfg.match(/projectId["']?\s*:\s*["']([^"']+)["']/);
-        if (m) projectHint = m[1];
-        const hasGemini = payload.gemini ? "，並包含 Gemini API Key" : "";
+      try {
+        let tokenId = null;
+        let bootstrap = null;
+
+        try {
+          const parsed = JSON.parse(b64urlDecode(syncData));
+          if (parsed && typeof parsed.cfg === "string") {
+            alert("此為舊版同步連結，已不再支援（會把金鑰寫進網址）。請在電腦上重新產生一次性 QR Code。");
+            return;
+          }
+          if (parsed && typeof parsed.t === "string") {
+            tokenId = parsed.t;
+            bootstrap = parsed.b && typeof parsed.b === "object" ? parsed.b : null;
+          }
+        } catch (_) {
+          if (/^[A-Za-z0-9_-]{16,64}$/.test(syncData)) tokenId = syncData;
+        }
+
+        if (!tokenId) throw new Error("無效的同步資料");
+
+        if (!bootstrap) {
+          const localCfg = localStorage.getItem("teamsync_firebase_config");
+          if (!localCfg) {
+            alert("此裝置沒有 Firebase 連線設定，無法兌換只含代碼的同步連結。請重新掃描完整 QR Code。");
+            return;
+          }
+          bootstrap = publicFirebaseBootstrap(localCfg);
+        }
+
+        const projectHint = bootstrap.projectId || "(無法辨識)";
         const ok = confirm(
-          `偵測到同步連結，將覆蓋本機的連線設定：\n\nFirebase 專案：${projectHint}${hasGemini}\n\n` +
+          `偵測到一次性同步碼，將覆蓋本機的連線設定：\n\nFirebase 專案：${projectHint}\n（兌換後可能寫入 Gemini API Key）\n\n` +
           `只有在這是你自己產生的 QR Code 時才按「確定」。\n不明來源的連結請按「取消」。`
         );
         if (!ok) return;
 
-        localStorage.setItem("teamsync_firebase_config", payload.cfg);
-        if (payload.gemini) localStorage.setItem("teamsync_gemini_key", payload.gemini);
+        const result = await redeemSyncToken(tokenId, bootstrap);
+        if (!result || !result.ok) {
+          const why = result && result.reason === "expired" ? "同步碼已過期" : "同步碼不存在或已使用過";
+          alert(`${why}。未變更任何設定。`);
+          return;
+        }
+
+        const data = result.data;
+        if (!data || typeof data.cfg !== "string") throw new Error("同步資料不完整");
+
+        localStorage.setItem("teamsync_firebase_config", data.cfg);
+        if (data.gemini) localStorage.setItem("teamsync_gemini_key", data.gemini);
+        else localStorage.removeItem("teamsync_gemini_key");
         alert("🎉 手機連線設定已成功匯入！");
       } catch (e) {
-        console.error("URL 同步解碼失敗:", e);
-        alert("同步連結解碼失敗，未變更任何設定。");
+        console.error("同步兌換失敗:", e);
+        alert("同步連結兌換失敗，未變更任何設定。\n" + (e && e.message ? e.message : e));
       }
     }
 
-    function generateSyncQR() {
+    async function generateSyncQR() {
       const cfg = document.getElementById("firebaseConfigInput").value.trim();
       const gemini = document.getElementById("geminiKeyInput").value.trim();
       if (!cfg) {
@@ -457,12 +583,59 @@
         alert("QRCode 套件載入失敗 (可能被網路封鎖)，無法產生條碼。");
         return;
       }
-      if (gemini && !confirm("此 QR Code 會包含你的 Gemini API Key 與 Firebase 設定，任何掃到的人都能取得。\n確定要產生嗎？\n(建議：只在私下環境使用，用完請關閉視窗)")) {
+      if (typeof firebase === "undefined" || !db || !firebase.apps.length) {
+        alert("請先按「儲存並連線」完成 Firebase 連線，再產生同步 QR Code。");
+        return;
+      }
+      if (!firebase.auth().currentUser) {
+        alert("請先使用 Google 帳號登入後再產生同步 QR Code。");
         return;
       }
 
-      const payload = { cfg: cfg, gemini: gemini };
-      const encoded = b64urlEncode(JSON.stringify(payload));
+      let bootstrap;
+      try {
+        bootstrap = publicFirebaseBootstrap(cfg);
+      } catch (e) {
+        alert(e && e.message ? e.message : "Firebase Config 無法解析。");
+        return;
+      }
+
+      const liveProject = firebase.app().options.projectId;
+      if (liveProject && bootstrap.projectId && liveProject !== bootstrap.projectId) {
+        alert("上方 Config 的專案與目前連線專案不同，請先按「儲存並連線」再產生 QR Code。");
+        return;
+      }
+
+      if (!confirm(
+        "將寫入一組 10 分鐘內有效、只能使用一次的同步碼到雲端。\n" +
+        "掃碼的手機會兌換 Firebase 設定" + (gemini ? "與 Gemini API Key" : "") + "，兌換後立即失效。\n\n確定要產生嗎？"
+      )) {
+        return;
+      }
+
+      const tokenId = randomSyncToken();
+      const expiresAt = Date.now() + SYNC_TOKEN_TTL_MS;
+      try {
+        const writeResult = await withTimeout(
+          db.collection("sync_tokens").doc(tokenId).set({
+            cfg,
+            gemini,
+            expires_at: expiresAt,
+            created_at: firebase.firestore.FieldValue.serverTimestamp()
+          }),
+          15000
+        );
+        if (writeResult === "__timeout__") {
+          alert("⏳ 雲端 15 秒內未回應，同步碼可能尚未寫入。請檢查連線後再試。");
+          return;
+        }
+      } catch (err) {
+        console.error("寫入 sync_tokens 失敗:", err);
+        alert("無法寫入一次性同步碼。請確認已登入，且 Firestore 規則允許寫入 sync_tokens。\n" + (err && err.message ? err.message : err));
+        return;
+      }
+
+      const encoded = b64urlEncode(JSON.stringify({ t: tokenId, b: bootstrap }));
       const syncUrl = `${window.location.origin}${window.location.pathname}?sync=${encoded}`;
 
       const qrBox = document.getElementById("qrcode");
@@ -1363,10 +1536,15 @@
     function openConfigModal() {
       document.getElementById("firebaseConfigInput").value = localStorage.getItem("teamsync_firebase_config") || "";
       document.getElementById("geminiKeyInput").value = localStorage.getItem("teamsync_gemini_key") || "";
+      document.getElementById("geminiKeyInput").type = "password";
+      updateGeminiKeyFingerprint();
       document.getElementById("qrContainer").classList.add("hidden");
       document.getElementById("configModal").classList.replace("hidden", "flex");
     }
-    function closeConfigModal() { document.getElementById("configModal").classList.replace("flex", "hidden"); }
+    function closeConfigModal() {
+      document.getElementById("geminiKeyInput").type = "password";
+      document.getElementById("configModal").classList.replace("flex", "hidden");
+    }
     async function saveConfig() {
       const cfg = document.getElementById("firebaseConfigInput").value.trim();
       const gemini = document.getElementById("geminiKeyInput").value.trim();
